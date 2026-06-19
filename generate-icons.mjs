@@ -10,7 +10,7 @@ const svgIcon = (size) => {
   const sw3 = 2 * k
   // Q centrada al quadrat, més petita
   const qk = s / 40
-  const qcx = 20 * qk, qcy = 19 * qk, qr = 9 * qk
+  const qcx = 20 * qk, qcy = 19 * qk, qr = 11 * qk
   // Tail: just touching inside the circle → bottom-right
   const tx1 = 22*qk, ty1 = 22*qk, tx2 = 30*qk, ty2 = 30*qk
   // Chart polyline centred inside circle

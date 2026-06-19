@@ -194,7 +194,7 @@ export default function App() {
       <div className="app">
         <header className="app-header">
           <button style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'none', border: 'none', color: 'var(--text1)', cursor: 'pointer', padding: 0 }} onClick={() => setTab('inicio')}>
-            <Logo size={28} />
+            <Logo size={34} />
             <span className="header-title">FinQuim</span>
           </button>
           <div style={{ display: 'flex', gap: 4 }}>
