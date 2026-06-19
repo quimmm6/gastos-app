@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Trash2, Pencil, Check, X } from 'lucide-react'
 import { reassignCategory } from '../services/googleSheets'
-import { BottomSheet } from '../App'
+import BottomSheet from './BottomSheet'
 
 function ReassignModal({ oldCat, cats, spreadsheetId, onConfirm, onCancel }) {
   const [target, setTarget] = useState(cats[0]?.name || '')
@@ -141,8 +141,12 @@ export default function Categories({ categories, onSave, transactions, spreadshe
 
       <div className="card" style={{ marginBottom: 16 }}>
         {cats[tab].length === 0 && <p style={{ color: 'var(--text2)', fontSize: 14, textAlign: 'center', padding: '12px 0' }}>Sense categories</p>}
-        {cats[tab].map((cat, i) => (
-          <div key={cat.name + i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: i < cats[tab].length - 1 ? '1px solid var(--border)' : 'none' }}>
+        {[...cats[tab]].map((cat, _, arr) => ({ cat, origIdx: cats[tab].indexOf(cat) }))
+          .sort((a, b) => a.cat.name.localeCompare(b.cat.name, 'ca'))
+          .map(({ cat, origIdx }, displayIdx, sortedArr) => {
+          const i = origIdx
+          return (
+          <div key={cat.name + i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: displayIdx < sortedArr.length - 1 ? '1px solid var(--border)' : 'none' }}>
             {editIdx === i ? (
               <>
                 <input
@@ -173,7 +177,7 @@ export default function Categories({ categories, onSave, transactions, spreadshe
               </>
             )}
           </div>
-        ))}
+        )})}
       </div>
 
       <button className="btn-primary" onClick={handleSave}>

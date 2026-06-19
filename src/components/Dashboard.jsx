@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react'
+import { ChevronLeft, ChevronRight, RefreshCw, Eye, EyeOff } from 'lucide-react'
 import { useState } from 'react'
 import { fmtDate, currentYearMonth, monthName, toYearMonth } from '../utils/dates'
 
@@ -6,31 +6,31 @@ function fmt(n) {
   return new Intl.NumberFormat('ca-ES', { style: 'currency', currency: 'EUR' }).format(n)
 }
 
-function getLast13Months() {
-  const result = []
-  const now = new Date()
-  for (let i = 0; i < 13; i++) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
-    result.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`)
-  }
-  return result
+function getAvailableMonths(transactions) {
+  const set = new Set(transactions.map(t => t.fecha?.slice(0, 7)).filter(Boolean))
+  set.add(currentYearMonth())
+  return [...set].sort().reverse()
 }
 
 export default function Dashboard({ transactions, loading, onRefresh, categories }) {
-  const allMonths = getLast13Months()
+  const allMonths = getAvailableMonths(transactions)
   const [ym, setYm] = useState(currentYearMonth())
+  const [hideTotal, setHideTotal] = useState(false)
 
-  const idx = allMonths.indexOf(ym)
+  const safeYm = allMonths.includes(ym) ? ym : (allMonths[0] || currentYearMonth())
+  const idx = allMonths.indexOf(safeYm)
   const canPrev = idx < allMonths.length - 1
   const canNext = idx > 0
 
-  const monthly = transactions.filter(t => toYearMonth(t.fecha) === ym)
+  const monthly = transactions.filter(t => toYearMonth(t.fecha) === safeYm)
   const ingresos = monthly.filter(t => t.tipo === 'ingreso').reduce((s, t) => s + t.importe, 0)
   const gastos = monthly.filter(t => t.tipo === 'gasto').reduce((s, t) => s + t.importe, 0)
   const balance = ingresos - gastos
 
-  const totalBalance = transactions.filter(t => t.tipo === 'ingreso').reduce((s, t) => s + t.importe, 0)
-    - transactions.filter(t => t.tipo === 'gasto').reduce((s, t) => s + t.importe, 0)
+  const year = safeYm.slice(0, 4)
+  const yearTxs = transactions.filter(t => t.fecha?.startsWith(year))
+  const yearBalance = yearTxs.filter(t => t.tipo === 'ingreso').reduce((s, t) => s + t.importe, 0)
+    - yearTxs.filter(t => t.tipo === 'gasto').reduce((s, t) => s + t.importe, 0)
 
   const catMap = {}
   ;[...(categories?.gasto || []), ...(categories?.ingreso || [])].forEach(c => { catMap[c.name] = c.icon })
@@ -41,7 +41,7 @@ export default function Dashboard({ transactions, loading, onRefresh, categories
         <button className="btn-icon" onClick={() => setYm(allMonths[idx + 1])} disabled={!canPrev}>
           <ChevronLeft size={20} />
         </button>
-        <span className="month-label">{monthName(ym)}</span>
+        <span className="month-label">{monthName(safeYm)}</span>
         <button className="btn-icon" onClick={() => setYm(allMonths[idx - 1])} disabled={!canNext}>
           <ChevronRight size={20} />
         </button>
@@ -60,8 +60,16 @@ export default function Dashboard({ transactions, loading, onRefresh, categories
             <div className="value gas">{fmt(gastos)}</div>
           </div>
         </div>
-        <div style={{ marginTop: 10, fontSize: 12, color: 'var(--text2)' }}>
-          Acumulat total: <strong style={{ color: totalBalance >= 0 ? 'var(--green)' : 'var(--red)' }}>{fmt(totalBalance)}</strong>
+        <div style={{ marginTop: 10, fontSize: 12, color: 'var(--text2)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+          Acumulat {year}:&nbsp;
+          {hideTotal
+            ? <strong>***</strong>
+            : <strong style={{ color: yearBalance >= 0 ? 'var(--green)' : 'var(--red)' }}>{fmt(yearBalance)}</strong>
+          }
+          <button onClick={() => setHideTotal(h => !h)}
+            style={{ background: 'none', border: 'none', color: 'var(--text2)', padding: '2px 4px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+            {hideTotal ? <Eye size={14} /> : <EyeOff size={14} />}
+          </button>
         </div>
       </div>
 
@@ -75,7 +83,7 @@ export default function Dashboard({ transactions, loading, onRefresh, categories
 
         {loading && <p className="empty">Carregant…</p>}
         {!loading && monthly.length === 0 && (
-          <p className="empty">Sense transaccions a {monthName(ym)}.<br />Prem el botó + per afegir-ne.</p>
+          <p className="empty">Sense transaccions a {monthName(safeYm)}.<br />Prem el botó + per afegir-ne.</p>
         )}
 
         <div className="recent-list">

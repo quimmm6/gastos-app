@@ -9,9 +9,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico'],
       manifest: {
-        name: 'Control de Gastos',
-        short_name: 'Gastos',
-        description: 'Controla tus gastos e ingresos',
+        name: 'FinQuim',
+        short_name: 'FinQuim',
+        description: 'Control de despeses i ingressos',
         theme_color: '#6366f1',
         background_color: '#0f0f13',
         display: 'standalone',

@@ -9,6 +9,7 @@ import Stats from './components/Stats'
 import Categories from './components/Categories'
 import Setup from './components/Setup'
 import Logo from './components/Logo'
+import BottomSheet from './components/BottomSheet'
 import './App.css'
 
 const TABS = ['inicio', 'lista', 'stats', 'cats']
@@ -134,7 +135,7 @@ export default function App() {
       <header className="app-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <Logo size={28} />
-          <span className="header-title">Despeses</span>
+          <span className="header-title">FinQuim</span>
         </div>
         <button className="btn-icon" onClick={handleSignOut} title="Sortir"><LogOut size={18} /></button>
       </header>
@@ -175,31 +176,6 @@ export default function App() {
           )
         })}
       </nav>
-    </div>
-  )
-}
-
-// Bottom sheet reutilitzable amb drag per tancar
-function BottomSheet({ children, onClose }) {
-  const [startY, setStartY] = useState(null)
-
-  const onTouchStart = (e) => setStartY(e.touches[0].clientY)
-  const onTouchEnd = (e) => {
-    if (startY !== null && e.changedTouches[0].clientY - startY > 80) onClose()
-    setStartY(null)
-  }
-
-  return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div
-        className="modal-sheet"
-        onClick={e => e.stopPropagation()}
-        onTouchStart={onTouchStart}
-        onTouchEnd={onTouchEnd}
-      >
-        <div className="modal-handle" />
-        {children}
-      </div>
     </div>
   )
 }

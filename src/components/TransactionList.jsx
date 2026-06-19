@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { Trash2, Pencil, X, Check } from 'lucide-react'
 import { deleteTransaction, updateTransaction } from '../services/googleSheets'
 import { fmtDate } from '../utils/dates'
-import { BottomSheet } from '../App'
+import BottomSheet from './BottomSheet'
 
 function fmt(n) {
   return new Intl.NumberFormat('ca-ES', { style: 'currency', currency: 'EUR' }).format(n)
