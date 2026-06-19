@@ -123,6 +123,23 @@ export async function deleteTransaction(spreadsheetId, id) {
   })
 }
 
+export async function updateTransaction(spreadsheetId, tx) {
+  const res = await window.gapi.client.sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range: 'F:F',
+  })
+  const rows = res.result.values || []
+  const rowIndex = rows.findIndex(r => r[0] === tx.id)
+  if (rowIndex < 1) return
+
+  await window.gapi.client.sheets.spreadsheets.values.update({
+    spreadsheetId,
+    range: `A${rowIndex + 1}:F${rowIndex + 1}`,
+    valueInputOption: 'RAW',
+    resource: { values: [[tx.fecha, tx.importe, tx.tipo, tx.categoria, tx.descripcion, tx.id]] },
+  })
+}
+
 export async function reassignCategory(spreadsheetId, oldCat, newCat) {
   const res = await window.gapi.client.sheets.spreadsheets.values.get({
     spreadsheetId,

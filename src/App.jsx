@@ -17,18 +17,32 @@ const TAB_NAMES = { inicio: 'Inici', lista: 'Llista', stats: 'Stats', cats: 'Cat
 
 const DEFAULT_CATS = {
   gasto: [
-    { name: 'Alimentació', icon: '🛒' }, { name: 'Transport', icon: '🚗' },
-    { name: 'Lleure', icon: '🎬' }, { name: 'Salut', icon: '💊' },
-    { name: 'Roba', icon: '👕' }, { name: 'Casa', icon: '🏠' },
-    { name: 'Subscripcions', icon: '📱' }, { name: 'Restaurants', icon: '🍽️' },
-    { name: 'Viatges', icon: '✈️' }, { name: 'Altres', icon: '📦' },
+    { name: 'Bar', icon: '🍻' },
+    { name: 'Àpats', icon: '🍴' },
+    { name: 'Restaurants', icon: '🍽️' },
+    { name: 'Cafè', icon: '☕' },
+    { name: 'Supermercat', icon: '🛒' },
+    { name: 'Gasolina', icon: '⛽' },
+    { name: 'Transport', icon: '🚅' },
+    { name: 'Vehicles', icon: '🔧' },
+    { name: 'Subscripcions', icon: '☁️' },
+    { name: 'Oci', icon: '🥳' },
+    { name: 'Roba', icon: '🛍️' },
+    { name: 'Viatges', icon: '🛫' },
+    { name: 'Regals', icon: '🎁' },
+    { name: 'Self-care', icon: '❤️' },
+    { name: 'Compartit', icon: '👥' },
+    { name: 'Compensació Targeta', icon: '💳' },
+    { name: 'Altres', icon: '📌' },
   ],
   ingreso: [
-    { name: 'Nòmina', icon: '💵' }, { name: 'Feina', icon: '💼' },
-    { name: 'Inversions', icon: '📈' }, { name: 'Regal', icon: '🎁' },
-    { name: 'Altres', icon: '📦' },
+    { name: 'Nòmina', icon: '💶' },
+    { name: 'Dietes', icon: '💰' },
+    { name: 'Targeta Despeses', icon: '💳' },
+    { name: 'Regal Personal', icon: '🎁' },
   ],
 }
+const CATS_VERSION = 2
 
 function migrateCats(raw) {
   if (!raw) return DEFAULT_CATS
@@ -37,8 +51,12 @@ function migrateCats(raw) {
 }
 
 function loadCats() {
-  try { return migrateCats(JSON.parse(localStorage.getItem('gastos_cats') || 'null')) }
-  catch { return DEFAULT_CATS }
+  try {
+    const stored = JSON.parse(localStorage.getItem('gastos_cats') || 'null')
+    const version = parseInt(localStorage.getItem('gastos_cats_v') || '0')
+    if (!stored || version < CATS_VERSION) return DEFAULT_CATS
+    return migrateCats(stored)
+  } catch { return DEFAULT_CATS }
 }
 
 export default function App() {
@@ -79,9 +97,14 @@ export default function App() {
 
   const handleSignOut = () => { signOut(); setAuthed(false); setTransactions([]) }
   const handleSaveConfig = (cfg) => { localStorage.setItem('gastos_config', JSON.stringify(cfg)); setConfig(cfg) }
-  const handleSaveCats = (cats) => { localStorage.setItem('gastos_cats', JSON.stringify(cats)); setCategories(cats) }
+  const handleSaveCats = (cats) => {
+    localStorage.setItem('gastos_cats', JSON.stringify(cats))
+    localStorage.setItem('gastos_cats_v', String(CATS_VERSION))
+    setCategories(cats)
+  }
   const onTransactionAdded = (tx) => { setTransactions((prev) => [tx, ...prev]); setShowAdd(false) }
   const onTransactionDeleted = (id) => setTransactions((prev) => prev.filter((t) => t.id !== id))
+  const onTransactionUpdated = (updated) => setTransactions((prev) => prev.map(t => t.id === updated.id ? updated : t))
   const onCategoryReassigned = (oldCat, newCat) => {
     setTransactions(prev => prev.map(t => t.categoria === oldCat ? { ...t, categoria: newCat } : t))
   }
@@ -118,7 +141,7 @@ export default function App() {
 
       <main className="app-main">
         {tab === 'inicio' && <Dashboard transactions={transactions} loading={loading} onRefresh={fetchTransactions} categories={categories} />}
-        {tab === 'lista' && <TransactionList transactions={transactions} spreadsheetId={config.spreadsheetId} onDeleted={onTransactionDeleted} loading={loading} categories={categories} />}
+        {tab === 'lista' && <TransactionList transactions={transactions} spreadsheetId={config.spreadsheetId} onDeleted={onTransactionDeleted} onUpdated={onTransactionUpdated} loading={loading} categories={categories} />}
         {tab === 'stats' && <Stats transactions={transactions} />}
         {tab === 'cats' && <Categories categories={categories} onSave={handleSaveCats} transactions={transactions} spreadsheetId={config.spreadsheetId} onReassigned={onCategoryReassigned} />}
       </main>
