@@ -21,9 +21,9 @@
 }
 
 [data-theme="light"] {
-  --bg: #ededf8;
-  --bg2: #f7f7fc;
-  --bg3: #e2e2f0;
+  --bg: #e4e3f5;
+  --bg2: #f0effa;
+  --bg3: #d8d7ee;
   --border: #d0d0e6;
   --text1: #1a1a2e;
   --text2: #6868a0;
@@ -51,8 +51,8 @@ html, body, #root {
 
 .app-header {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 12px 20px;
-  padding-top: max(12px, env(safe-area-inset-top));
+  padding: 7px 16px;
+  padding-top: max(7px, env(safe-area-inset-top));
   background: var(--bg2); border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }

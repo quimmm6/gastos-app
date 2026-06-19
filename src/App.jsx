@@ -210,7 +210,7 @@ export default function App() {
         <header className="app-header">
           <button style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'none', border: 'none', color: 'var(--text1)', cursor: 'pointer', padding: 0 }} onClick={() => setTab('inicio')}>
             <Logo size={42} />
-            <span className="header-title" style={{ fontSize: 22, letterSpacing: '-0.5px' }}>FinQuim</span>
+            <span className="header-title" style={{ fontSize: 26, letterSpacing: '-0.5px' }}>FinQuim</span>
           </button>
           <div style={{ display: 'flex', gap: 4 }}>
             <button className="btn-icon" onClick={toggleTheme} title="Canviar tema">
