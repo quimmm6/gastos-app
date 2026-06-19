@@ -196,13 +196,45 @@ export default function App() {
     saveCategories(config.spreadsheetId, cats).catch(console.error)
   }
   const mainSwipeX = useRef(null)
+  const mainSwipeY = useRef(null)
+  const [pullRefreshing, setPullRefreshing] = useState(false)
+  const [pullY, setPullY] = useState(0)
+  const PULL_THRESHOLD = 72
+
   const goTab = (newTab, dir) => { setTabSlideDir(dir); setTabAnimKey(k => k + 1); setTab(newTab) }
-  const onMainTouchStart = (e) => { mainSwipeX.current = e.touches[0].clientX }
+
+  const onMainTouchStart = (e) => {
+    mainSwipeX.current = e.touches[0].clientX
+    mainSwipeY.current = e.touches[0].clientY
+  }
+
+  const onMainTouchMove = (e) => {
+    if (mainSwipeY.current === null || pullRefreshing) return
+    const dy = e.touches[0].clientY - mainSwipeY.current
+    const dx = Math.abs(e.touches[0].clientX - mainSwipeX.current)
+    const main = e.currentTarget
+    if (dy > 0 && dx < 30 && main.scrollTop === 0) {
+      setPullY(Math.min(dy * 0.45, PULL_THRESHOLD))
+    }
+  }
+
   const onMainTouchEnd = (e) => {
-    if (mainSwipeX.current === null) return
-    const dx = e.changedTouches[0].clientX - mainSwipeX.current
+    const dx = e.changedTouches[0].clientX - (mainSwipeX.current ?? 0)
+    const dy = e.changedTouches[0].clientY - (mainSwipeY.current ?? 0)
     mainSwipeX.current = null
-    if (Math.abs(dx) < 120) return
+    mainSwipeY.current = null
+
+    // Pull to refresh
+    if (pullY >= PULL_THRESHOLD && !pullRefreshing) {
+      setPullY(0)
+      setPullRefreshing(true)
+      fetchTransactions().finally(() => setPullRefreshing(false))
+      return
+    }
+    setPullY(0)
+
+    // Horizontal tab swipe
+    if (Math.abs(dx) < 120 || Math.abs(dy) > 60) return
     const curIdx = TABS.indexOf(tab)
     if (dx < 0 && curIdx < TABS.length - 1) goTab(TABS[curIdx + 1], 'left')
     if (dx > 0 && curIdx > 0) goTab(TABS[curIdx - 1], 'right')
@@ -233,7 +265,12 @@ export default function App() {
           </div>
         </header>
 
-        <main className="app-main" onTouchStart={onMainTouchStart} onTouchEnd={onMainTouchEnd}>
+        <main className="app-main" onTouchStart={onMainTouchStart} onTouchMove={onMainTouchMove} onTouchEnd={onMainTouchEnd}>
+          {(pullY > 0 || pullRefreshing) && (
+            <div style={{ display: 'flex', justifyContent: 'center', height: pullRefreshing ? 40 : pullY, overflow: 'hidden', transition: pullY === 0 ? 'height 0.2s' : 'none', alignItems: 'center' }}>
+              <RefreshCw size={18} style={{ color: 'var(--accent)', opacity: Math.min(pullY / PULL_THRESHOLD, 1), animation: pullRefreshing ? 'spin 0.8s linear infinite' : 'none', transform: pullRefreshing ? undefined : `rotate(${(pullY / PULL_THRESHOLD) * 180}deg)` }} />
+            </div>
+          )}
           <div key={tabAnimKey} className={`page-slide page-slide-${tabSlideDir}`}>
             {tab === 'inicio' && <Dashboard transactions={transactions} loading={loading} onRefresh={fetchTransactions} categories={categories} />}
             {tab === 'lista' && <TransactionList transactions={transactions} spreadsheetId={config.spreadsheetId} onDeleted={onTransactionDeleted} onUpdated={onTransactionUpdated} loading={loading} categories={categories} />}

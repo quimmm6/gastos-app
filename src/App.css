@@ -329,6 +329,7 @@ button { cursor: pointer; }
 .filter-select.active-filter { border-color: var(--accent); color: var(--accent); background: #6366f115; }
 
 /* ── Page slide transitions ── */
+@keyframes spin { to { transform: rotate(360deg); } }
 @keyframes slideFromRight { from { opacity: 0; transform: translateX(28px); } to { opacity: 1; transform: none; } }
 @keyframes slideFromLeft  { from { opacity: 0; transform: translateX(-28px); } to { opacity: 1; transform: none; } }
 .page-slide { animation-duration: 0.22s; animation-timing-function: ease; animation-fill-mode: both; }
