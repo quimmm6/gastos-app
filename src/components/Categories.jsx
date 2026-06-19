@@ -1,40 +1,8 @@
 import { useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Trash2, Pencil, Check, X } from 'lucide-react'
 import { reassignCategory } from '../services/googleSheets'
-
-const EMOJI_OPTIONS = [
-  '🛒','🚗','🎬','💊','👕','🏠','📱','🍽️','✈️','📦','💵','💼','📈','🎁',
-  '🐶','🍕','☕','🎵','📚','🏋️','🎮','💐','🧴','🧹','⚡','🌊','🍺','🎂',
-  '🏥','🚌','🚲','🛵','🏖️','🎁','💻','🖥️','📷','👶','🧒','👓','🎓','🏫',
-]
-
-function EmojiPicker({ value, onChange }) {
-  const [open, setOpen] = useState(false)
-  return (
-    <div style={{ position: 'relative' }}>
-      <button type="button" onClick={() => setOpen(o => !o)}
-        style={{ fontSize: 24, background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8, padding: '6px 10px', cursor: 'pointer' }}>
-        {value || '📦'}
-      </button>
-      {open && (
-        <div style={{
-          position: 'absolute', top: 44, left: 0, zIndex: 100,
-          background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12,
-          padding: 10, display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, width: 240,
-          boxShadow: '0 8px 24px rgba(0,0,0,.5)'
-        }}>
-          {EMOJI_OPTIONS.map(e => (
-            <button key={e} type="button"
-              onClick={() => { onChange(e); setOpen(false) }}
-              style={{ fontSize: 20, background: value === e ? 'var(--accent)' : 'none', border: 'none', borderRadius: 6, padding: 4, cursor: 'pointer' }}>
-              {e}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
+import { BottomSheet } from '../App'
 
 function ReassignModal({ oldCat, cats, spreadsheetId, onConfirm, onCancel }) {
   const [target, setTarget] = useState(cats[0]?.name || '')
@@ -45,31 +13,29 @@ function ReassignModal({ oldCat, cats, spreadsheetId, onConfirm, onCancel }) {
     try {
       await reassignCategory(spreadsheetId, oldCat, target)
       onConfirm(oldCat, target)
-    } catch { alert('Error al reasignar') }
+    } catch { alert('Error en reassignar') }
     finally { setWorking(false) }
   }
 
-  return (
-    <div className="modal-overlay" onClick={onCancel}>
-      <div className="modal-sheet" onClick={e => e.stopPropagation()} style={{ padding: 24 }}>
-        <div className="modal-handle" />
-        <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>Categoría en uso</h3>
-        <p style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 16 }}>
-          Hay transacciones con la categoría <strong>{oldCat}</strong>. ¿A qué categoría moverlas?
-        </p>
-        <div className="form-group">
-          <select value={target} onChange={e => setTarget(e.target.value)}>
-            {cats.map(c => <option key={c.name} value={c.name}>{c.icon} {c.name}</option>)}
-          </select>
-        </div>
-        <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-          <button className="btn-ghost" style={{ flex: 1 }} onClick={onCancel}>Cancelar</button>
-          <button className="btn-primary" style={{ flex: 1 }} onClick={handleConfirm} disabled={working}>
-            {working ? 'Moviendo…' : 'Mover y eliminar'}
-          </button>
-        </div>
+  return createPortal(
+    <BottomSheet onClose={onCancel}>
+      <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>Categoria en ús</h3>
+      <p style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 16 }}>
+        Hi ha transaccions amb la categoria <strong>{oldCat}</strong>. A quina categoria les movem?
+      </p>
+      <div className="form-group">
+        <select value={target} onChange={e => setTarget(e.target.value)}>
+          {cats.map(c => <option key={c.name} value={c.name}>{c.icon} {c.name}</option>)}
+        </select>
       </div>
-    </div>
+      <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+        <button className="btn-ghost" style={{ flex: 1 }} onClick={onCancel}>Cancel·lar</button>
+        <button className="btn-primary" style={{ flex: 1 }} onClick={handleConfirm} disabled={working}>
+          {working ? 'Movent…' : 'Moure i eliminar'}
+        </button>
+      </div>
+    </BottomSheet>,
+    document.body
   )
 }
 
@@ -79,9 +45,11 @@ export default function Categories({ categories, onSave, transactions, spreadshe
   const [newName, setNewName] = useState('')
   const [newIcon, setNewIcon] = useState('📦')
   const [editIdx, setEditIdx] = useState(null)
+  const [editName, setEditName] = useState('')
   const [editIcon, setEditIcon] = useState('')
   const [saved, setSaved] = useState(false)
-  const [reassigning, setReassigning] = useState(null) // { cat, tipo }
+  const [reassigning, setReassigning] = useState(null)
+  const [renaming, setRenaming] = useState(false)
 
   const add = () => {
     const val = newName.trim()
@@ -90,12 +58,30 @@ export default function Categories({ categories, onSave, transactions, spreadshe
     setNewName(''); setNewIcon('📦'); setSaved(false)
   }
 
-  const startEdit = (i) => { setEditIdx(i); setEditIcon(cats[tab][i].icon) }
+  const startEdit = (i) => {
+    setEditIdx(i)
+    setEditIcon(cats[tab][i].icon)
+    setEditName(cats[tab][i].name)
+  }
 
-  const saveEdit = (i) => {
+  const saveEdit = async (i) => {
+    const oldName = cats[tab][i].name
+    const newName2 = editName.trim() || oldName
+    const nameChanged = newName2 !== oldName
+    const inUse = nameChanged && transactions.some(t => t.categoria === oldName)
+
+    if (inUse) {
+      setRenaming(true)
+      try {
+        await reassignCategory(spreadsheetId, oldName, newName2)
+        onReassigned(oldName, newName2)
+      } catch { alert('Error en actualitzar les entrades'); setRenaming(false); return }
+      setRenaming(false)
+    }
+
     setCats(c => {
       const arr = [...c[tab]]
-      arr[i] = { ...arr[i], icon: editIcon }
+      arr[i] = { name: newName2, icon: editIcon }
       return { ...c, [tab]: arr }
     })
     setEditIdx(null); setSaved(false)
@@ -106,16 +92,14 @@ export default function Categories({ categories, onSave, transactions, spreadshe
     const inUse = transactions.some(t => t.categoria === cat.name)
     if (inUse) {
       const others = cats[tab].filter((_, j) => j !== i)
+      if (others.length === 0) { alert("No pots eliminar l'única categoria"); return }
       setReassigning({ cat: cat.name, tipo: tab, idx: i, others })
     } else {
       remove(i)
     }
   }
 
-  const remove = (i) => {
-    setCats(c => ({ ...c, [tab]: c[tab].filter((_, j) => j !== i) }))
-    setSaved(false)
-  }
+  const remove = (i) => { setCats(c => ({ ...c, [tab]: c[tab].filter((_, j) => j !== i) })); setSaved(false) }
 
   const handleReassignConfirm = (oldCat, newCat) => {
     onReassigned(oldCat, newCat)
@@ -127,18 +111,23 @@ export default function Categories({ categories, onSave, transactions, spreadshe
 
   return (
     <div>
-      <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 16 }}>Categorías</h2>
+      <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 16 }}>Categories</h2>
 
       <div className="tipo-toggle" style={{ marginBottom: 16 }}>
-        <button type="button" className={`tipo-btn ${tab === 'gasto' ? 'active gasto' : ''}`} onClick={() => { setTab('gasto'); setEditIdx(null) }}>🔴 Gastos</button>
-        <button type="button" className={`tipo-btn ${tab === 'ingreso' ? 'active ingreso' : ''}`} onClick={() => { setTab('ingreso'); setEditIdx(null) }}>🟢 Ingresos</button>
+        <button type="button" className={`tipo-btn ${tab === 'gasto' ? 'active gasto' : ''}`} onClick={() => { setTab('gasto'); setEditIdx(null) }}>🔴 Despeses</button>
+        <button type="button" className={`tipo-btn ${tab === 'ingreso' ? 'active ingreso' : ''}`} onClick={() => { setTab('ingreso'); setEditIdx(null) }}>🟢 Ingressos</button>
       </div>
 
-      {/* Añadir nueva */}
+      {/* Afegir nova */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 16, alignItems: 'center' }}>
-        <EmojiPicker value={newIcon} onChange={setNewIcon} />
         <input
-          placeholder="Nueva categoría…"
+          value={newIcon}
+          onChange={e => setNewIcon(e.target.value)}
+          style={{ width: 48, textAlign: 'center', fontSize: 22, background: 'var(--bg3)', border: '1px solid var(--border)', color: 'var(--text1)', borderRadius: 8, padding: '8px 4px' }}
+          maxLength={2}
+        />
+        <input
+          placeholder="Nova categoria…"
           value={newName}
           onChange={e => setNewName(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && add()}
@@ -146,17 +135,34 @@ export default function Categories({ categories, onSave, transactions, spreadshe
         />
         <button className="btn-primary" style={{ width: 'auto', padding: '10px 16px' }} onClick={add}>+</button>
       </div>
+      <p style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 14, marginTop: -10 }}>
+        Posa el cursor al camp de l'emoji i obre el teclat d'emojis (🌐 o Ctrl+Cmd+Espai al Mac)
+      </p>
 
       <div className="card" style={{ marginBottom: 16 }}>
-        {cats[tab].length === 0 && <p style={{ color: 'var(--text2)', fontSize: 14, textAlign: 'center', padding: '12px 0' }}>Sin categorías</p>}
+        {cats[tab].length === 0 && <p style={{ color: 'var(--text2)', fontSize: 14, textAlign: 'center', padding: '12px 0' }}>Sense categories</p>}
         {cats[tab].map((cat, i) => (
-          <div key={cat.name} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
+          <div key={cat.name + i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: i < cats[tab].length - 1 ? '1px solid var(--border)' : 'none' }}>
             {editIdx === i ? (
               <>
-                <EmojiPicker value={editIcon} onChange={setEditIcon} />
-                <span style={{ flex: 1, fontSize: 14 }}>{cat.name}</span>
-                <button onClick={() => saveEdit(i)} style={{ background: 'none', border: 'none', color: 'var(--green)', cursor: 'pointer', padding: 4 }}><Check size={16} /></button>
-                <button onClick={() => setEditIdx(null)} style={{ background: 'none', border: 'none', color: 'var(--text2)', cursor: 'pointer', padding: 4 }}><X size={16} /></button>
+                <input
+                  value={editIcon}
+                  onChange={e => setEditIcon(e.target.value)}
+                  style={{ width: 44, textAlign: 'center', fontSize: 20, background: 'var(--bg3)', border: '1px solid var(--border)', color: 'var(--text1)', borderRadius: 6, padding: '4px' }}
+                  maxLength={2}
+                />
+                <input
+                  value={editName}
+                  onChange={e => setEditName(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && saveEdit(i)}
+                  style={{ flex: 1, background: 'var(--bg3)', border: '1px solid var(--border)', color: 'var(--text1)', borderRadius: 6, padding: '6px 10px', fontSize: 14 }}
+                />
+                <button onClick={() => saveEdit(i)} disabled={renaming} style={{ background: 'none', border: 'none', color: 'var(--green)', cursor: 'pointer', padding: 4 }}>
+                  {renaming ? '…' : <Check size={16} />}
+                </button>
+                <button onClick={() => setEditIdx(null)} style={{ background: 'none', border: 'none', color: 'var(--text2)', cursor: 'pointer', padding: 4 }}>
+                  <X size={16} />
+                </button>
               </>
             ) : (
               <>
@@ -171,7 +177,7 @@ export default function Categories({ categories, onSave, transactions, spreadshe
       </div>
 
       <button className="btn-primary" onClick={handleSave}>
-        {saved ? '✓ Guardado' : 'Guardar cambios'}
+        {saved ? '✓ Desat' : 'Desar canvis'}
       </button>
 
       {reassigning && (

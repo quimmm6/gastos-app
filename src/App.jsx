@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { Home, List, BarChart2, Tag, Plus, LogOut } from 'lucide-react'
 import { loadGoogleAPIs, signIn, signOut, isSignedIn, initSheet, getTransactions } from './services/googleSheets'
 import Dashboard from './components/Dashboard'
@@ -7,24 +8,25 @@ import TransactionList from './components/TransactionList'
 import Stats from './components/Stats'
 import Categories from './components/Categories'
 import Setup from './components/Setup'
+import Logo from './components/Logo'
 import './App.css'
 
 const TABS = ['inicio', 'lista', 'stats', 'cats']
 const TAB_ICONS = { inicio: Home, lista: List, stats: BarChart2, cats: Tag }
-const TAB_NAMES = { inicio: 'Inicio', lista: 'Lista', stats: 'Stats', cats: 'Cats' }
+const TAB_NAMES = { inicio: 'Inici', lista: 'Llista', stats: 'Stats', cats: 'Cats' }
 
 const DEFAULT_CATS = {
   gasto: [
-    { name: 'Alimentación', icon: '🛒' }, { name: 'Transporte', icon: '🚗' },
-    { name: 'Ocio', icon: '🎬' }, { name: 'Salud', icon: '💊' },
-    { name: 'Ropa', icon: '👕' }, { name: 'Casa', icon: '🏠' },
-    { name: 'Suscripciones', icon: '📱' }, { name: 'Restaurantes', icon: '🍽️' },
-    { name: 'Viajes', icon: '✈️' }, { name: 'Otros', icon: '📦' },
+    { name: 'Alimentació', icon: '🛒' }, { name: 'Transport', icon: '🚗' },
+    { name: 'Lleure', icon: '🎬' }, { name: 'Salut', icon: '💊' },
+    { name: 'Roba', icon: '👕' }, { name: 'Casa', icon: '🏠' },
+    { name: 'Subscripcions', icon: '📱' }, { name: 'Restaurants', icon: '🍽️' },
+    { name: 'Viatges', icon: '✈️' }, { name: 'Altres', icon: '📦' },
   ],
   ingreso: [
-    { name: 'Nómina', icon: '💵' }, { name: 'Trabajo', icon: '💼' },
-    { name: 'Inversiones', icon: '📈' }, { name: 'Regalo', icon: '🎁' },
-    { name: 'Otros', icon: '📦' },
+    { name: 'Nòmina', icon: '💵' }, { name: 'Feina', icon: '💼' },
+    { name: 'Inversions', icon: '📈' }, { name: 'Regal', icon: '🎁' },
+    { name: 'Altres', icon: '📦' },
   ],
 }
 
@@ -76,15 +78,10 @@ export default function App() {
   }
 
   const handleSignOut = () => { signOut(); setAuthed(false); setTransactions([]) }
-
   const handleSaveConfig = (cfg) => { localStorage.setItem('gastos_config', JSON.stringify(cfg)); setConfig(cfg) }
-
   const handleSaveCats = (cats) => { localStorage.setItem('gastos_cats', JSON.stringify(cats)); setCategories(cats) }
-
   const onTransactionAdded = (tx) => { setTransactions((prev) => [tx, ...prev]); setShowAdd(false) }
-
   const onTransactionDeleted = (id) => setTransactions((prev) => prev.filter((t) => t.id !== id))
-
   const onCategoryReassigned = (oldCat, newCat) => {
     setTransactions(prev => prev.map(t => t.categoria === oldCat ? { ...t, categoria: newCat } : t))
   }
@@ -95,14 +92,14 @@ export default function App() {
     return (
       <div className="auth-screen">
         <div className="auth-card">
-          <div className="app-logo">💰</div>
-          <h1>Control de Gastos</h1>
-          <p>Conecta tu cuenta de Google para acceder a tus datos en Google Sheets</p>
+          <div className="app-logo"><Logo size={64} /></div>
+          <h1>Control de Despeses</h1>
+          <p>Connecta el teu compte de Google per accedir a les teves dades a Google Sheets</p>
           {apisReady
-            ? <button className="btn-primary btn-large" onClick={handleSignIn}>Conectar con Google</button>
-            : <p className="loading-text">Cargando APIs…</p>}
+            ? <button className="btn-primary btn-large" onClick={handleSignIn}>Connectar amb Google</button>
+            : <p className="loading-text">Carregant APIs…</p>}
           <button className="btn-ghost small" onClick={() => { localStorage.removeItem('gastos_config'); setConfig(null) }}>
-            Cambiar configuración
+            Canviar configuració
           </button>
         </div>
       </div>
@@ -112,8 +109,11 @@ export default function App() {
   return (
     <div className="app">
       <header className="app-header">
-        <span className="header-title">💰 Gastos</span>
-        <button className="btn-icon" onClick={handleSignOut} title="Salir"><LogOut size={18} /></button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Logo size={28} />
+          <span className="header-title">Despeses</span>
+        </div>
+        <button className="btn-icon" onClick={handleSignOut} title="Sortir"><LogOut size={18} /></button>
       </header>
 
       <main className="app-main">
@@ -124,23 +124,21 @@ export default function App() {
       </main>
 
       {/* FAB */}
-      <button className="fab" onClick={() => setShowAdd(true)} aria-label="Añadir transacción">
+      <button className="fab" onClick={() => setShowAdd(true)} aria-label="Afegir transacció">
         <Plus size={26} strokeWidth={2.5} />
       </button>
 
-      {/* Modal añadir */}
-      {showAdd && (
-        <div className="modal-overlay" onClick={() => setShowAdd(false)}>
-          <div className="modal-sheet" onClick={e => e.stopPropagation()}>
-            <div className="modal-handle" />
-            <AddTransaction
-              spreadsheetId={config.spreadsheetId}
-              onAdded={onTransactionAdded}
-              categories={categories}
-              onCancel={() => setShowAdd(false)}
-            />
-          </div>
-        </div>
+      {/* Modal afegir — portal per evitar que quedi tallat */}
+      {showAdd && createPortal(
+        <BottomSheet onClose={() => setShowAdd(false)}>
+          <AddTransaction
+            spreadsheetId={config.spreadsheetId}
+            onAdded={onTransactionAdded}
+            categories={categories}
+            onCancel={() => setShowAdd(false)}
+          />
+        </BottomSheet>,
+        document.body
       )}
 
       <nav className="bottom-nav">
@@ -157,3 +155,30 @@ export default function App() {
     </div>
   )
 }
+
+// Bottom sheet reutilitzable amb drag per tancar
+function BottomSheet({ children, onClose }) {
+  const [startY, setStartY] = useState(null)
+
+  const onTouchStart = (e) => setStartY(e.touches[0].clientY)
+  const onTouchEnd = (e) => {
+    if (startY !== null && e.changedTouches[0].clientY - startY > 80) onClose()
+    setStartY(null)
+  }
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div
+        className="modal-sheet"
+        onClick={e => e.stopPropagation()}
+        onTouchStart={onTouchStart}
+        onTouchEnd={onTouchEnd}
+      >
+        <div className="modal-handle" />
+        {children}
+      </div>
+    </div>
+  )
+}
+
+export { BottomSheet }

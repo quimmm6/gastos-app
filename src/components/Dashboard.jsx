@@ -1,9 +1,9 @@
 import { ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react'
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { fmtDate, currentYearMonth, monthName, toYearMonth } from '../utils/dates'
 
 function fmt(n) {
-  return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(n)
+  return new Intl.NumberFormat('ca-ES', { style: 'currency', currency: 'EUR' }).format(n)
 }
 
 function getLast13Months() {
@@ -17,7 +17,7 @@ function getLast13Months() {
 }
 
 export default function Dashboard({ transactions, loading, onRefresh, categories }) {
-  const allMonths = getLast13Months() // newest first
+  const allMonths = getLast13Months()
   const [ym, setYm] = useState(currentYearMonth())
 
   const idx = allMonths.indexOf(ym)
@@ -37,7 +37,6 @@ export default function Dashboard({ transactions, loading, onRefresh, categories
 
   return (
     <div>
-      {/* Navegación de mes */}
       <div className="month-nav">
         <button className="btn-icon" onClick={() => setYm(allMonths[idx + 1])} disabled={!canPrev}>
           <ChevronLeft size={20} />
@@ -49,34 +48,34 @@ export default function Dashboard({ transactions, loading, onRefresh, categories
       </div>
 
       <div className="card balance-card">
-        <div className="balance-label">Balance del mes</div>
+        <div className="balance-label">Balanç del mes</div>
         <div className={`balance-amount ${balance >= 0 ? 'positive' : 'negative'}`}>{fmt(balance)}</div>
         <div className="balance-row">
           <div className="balance-mini">
-            <div className="label">Ingresos</div>
+            <div className="label">Ingressos</div>
             <div className="value ing">{fmt(ingresos)}</div>
           </div>
           <div className="balance-mini">
-            <div className="label">Gastos</div>
+            <div className="label">Despeses</div>
             <div className="value gas">{fmt(gastos)}</div>
           </div>
         </div>
         <div style={{ marginTop: 10, fontSize: 12, color: 'var(--text2)' }}>
-          Acumulado total: <strong style={{ color: totalBalance >= 0 ? 'var(--green)' : 'var(--red)' }}>{fmt(totalBalance)}</strong>
+          Acumulat total: <strong style={{ color: totalBalance >= 0 ? 'var(--green)' : 'var(--red)' }}>{fmt(totalBalance)}</strong>
         </div>
       </div>
 
       <div style={{ marginTop: 20 }}>
         <div className="section-header">
-          <span className="section-title">Transacciones del mes</span>
+          <span className="section-title">Transaccions del mes</span>
           <button className="btn-icon" onClick={onRefresh} disabled={loading}>
             <RefreshCw size={16} style={{ opacity: loading ? 0.4 : 1 }} />
           </button>
         </div>
 
-        {loading && <p className="empty">Cargando…</p>}
+        {loading && <p className="empty">Carregant…</p>}
         {!loading && monthly.length === 0 && (
-          <p className="empty">Sin transacciones en {monthName(ym)}.<br />Pulsa el botón + para añadir.</p>
+          <p className="empty">Sense transaccions a {monthName(ym)}.<br />Prem el botó + per afegir-ne.</p>
         )}
 
         <div className="recent-list">

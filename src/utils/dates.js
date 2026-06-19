@@ -14,10 +14,9 @@ export function monthName(ym) {
   if (!ym) return ''
   const [y, m] = ym.split('-')
   const date = new Date(parseInt(y), parseInt(m) - 1, 1)
-  return date.toLocaleString('es-ES', { month: 'long', year: 'numeric' })
+  return date.toLocaleString('ca-ES', { month: 'long', year: 'numeric' })
 }
 
-// YYYY-MM-DD → YYYY-MM (para agrupar)
 export function toYearMonth(dateStr) {
   return dateStr?.slice(0, 7) || ''
 }

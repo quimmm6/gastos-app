@@ -4,32 +4,34 @@ import { deleteTransaction } from '../services/googleSheets'
 import { fmtDate } from '../utils/dates'
 
 function fmt(n) {
-  return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(n)
+  return new Intl.NumberFormat('ca-ES', { style: 'currency', currency: 'EUR' }).format(n)
 }
 
 export default function TransactionList({ transactions, spreadsheetId, onDeleted, loading, categories }) {
-  const [filter, setFilter] = useState('todos')
+  const [filter, setFilter] = useState('tots')
   const [deleting, setDeleting] = useState(null)
 
   const catMap = {}
   ;[...(categories?.gasto || []), ...(categories?.ingreso || [])].forEach(c => { catMap[c.name] = c.icon })
 
-  const filtered = transactions.filter(t => filter === 'todos' || t.tipo === filter)
+  const filtered = transactions.filter(t =>
+    filter === 'tots' || (filter === 'despesa' && t.tipo === 'gasto') || (filter === 'ingrés' && t.tipo === 'ingreso')
+  )
 
   const handleDelete = async (tx) => {
-    if (!confirm(`¿Eliminar "${tx.categoria} ${fmt(tx.importe)}"?`)) return
+    if (!confirm(`Eliminar "${tx.categoria} ${fmt(tx.importe)}"?`)) return
     setDeleting(tx.id)
     try {
       await deleteTransaction(spreadsheetId, tx.id)
       onDeleted(tx.id)
-    } catch { alert('Error al eliminar') }
+    } catch { alert('Error en eliminar') }
     finally { setDeleting(null) }
   }
 
   return (
     <div>
       <div className="filter-bar">
-        {['todos', 'gasto', 'ingreso'].map(f => (
+        {['tots', 'despesa', 'ingrés'].map(f => (
           <button key={f} className={`filter-chip ${filter === f ? 'active' : ''}`} onClick={() => setFilter(f)}>
             {f.charAt(0).toUpperCase() + f.slice(1)}
           </button>
@@ -39,8 +41,8 @@ export default function TransactionList({ transactions, spreadsheetId, onDeleted
         </span>
       </div>
 
-      {loading && <p className="empty">Cargando…</p>}
-      {!loading && filtered.length === 0 && <p className="empty">No hay transacciones.</p>}
+      {loading && <p className="empty">Carregant…</p>}
+      {!loading && filtered.length === 0 && <p className="empty">No hi ha transaccions.</p>}
 
       <div className="recent-list">
         {filtered.map((tx) => (
