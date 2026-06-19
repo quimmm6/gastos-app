@@ -116,12 +116,20 @@ export default function App() {
     return (
       <div className="auth-screen">
         <div className="auth-card">
-          <div className="app-logo"><Logo size={64} /></div>
-          <h1>Control de Despeses</h1>
-          <p>Connecta el teu compte de Google per accedir a les teves dades a Google Sheets</p>
+          <div className="auth-logo-wrap">
+            <Logo size={72} />
+          </div>
+          <div className="auth-brand">
+            <div className="auth-brand-name">FinQuim</div>
+            <div className="auth-brand-sub">Control de Despeses</div>
+          </div>
+          <div className="auth-divider" />
+          <p className="auth-desc">Connecta el teu compte de Google per accedir a les teves dades</p>
           {apisReady
-            ? <button className="btn-primary btn-large" onClick={handleSignIn}>Connectar amb Google</button>
-            : <p className="loading-text">Carregant APIs…</p>}
+            ? <button className="btn-primary btn-large" onClick={handleSignIn}>
+                <span style={{ marginRight: 8, fontSize: 18 }}>G</span> Connectar amb Google
+              </button>
+            : <div className="auth-loading"><span className="auth-spinner" />Carregant…</div>}
           <button className="btn-ghost small" onClick={() => { localStorage.removeItem('gastos_config'); setConfig(null) }}>
             Canviar configuració
           </button>
