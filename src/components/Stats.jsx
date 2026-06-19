@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts'
+import { monthName } from '../utils/dates'
 
 const COLORS = ['#6366f1', '#22c55e', '#f59e0b', '#ef4444', '#06b6d4', '#a855f7', '#f97316', '#84cc16']
 
@@ -84,7 +85,7 @@ export default function Stats({ transactions }) {
     <div>
       {/* Period selector */}
       <div style={{ display: 'flex', gap: 6, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
-        {[['ytd', 'Any actual'], ['any', 'Any natural'], ['mes', '1 mes']].map(([v, l]) => (
+        {[['ytd', 'YTD'], ['any', 'Any natural'], ['mes', '1 mes']].map(([v, l]) => (
           <button key={v} className={`filter-chip ${period === v ? 'active' : ''}`} onClick={() => setPeriod(v)}>{l}</button>
         ))}
         {period === 'any' && (
@@ -96,7 +97,7 @@ export default function Stats({ transactions }) {
         {period === 'mes' && (
           <select value={selMonth} onChange={e => setSelMonth(e.target.value)}
             style={{ background: 'var(--bg3)', border: '1px solid var(--border)', color: 'var(--text1)', borderRadius: 20, padding: '5px 12px', fontSize: 12 }}>
-            {[...allYMs].reverse().map(ym => <option key={ym} value={ym}>{ym2label(ym)}</option>)}
+            {[...allYMs].reverse().map(ym => <option key={ym} value={ym}>{monthName(ym)}</option>)}
           </select>
         )}
       </div>
@@ -158,18 +159,32 @@ export default function Stats({ transactions }) {
 
       <div className="card">
         <div className="stats-title" style={{ marginBottom: 10 }}>Resum</div>
-        {[
-          { label: 'Total transaccions', value: filteredTxs.length },
-          { label: 'Total ingressos', value: fmt(totalIngresos) },
-          { label: 'Total despeses', value: fmt(totalGastos) },
-          { label: 'Balanç', value: fmt(totalIngresos - totalGastos) },
-          { label: 'Mitjana despesa', value: gastos.length ? fmt(totalGastos / gastos.length) : '—' },
-        ].map(row => (
-          <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--border)', fontSize: 14 }}>
-            <span style={{ color: 'var(--text2)' }}>{row.label}</span>
-            <span style={{ fontWeight: 600 }}>{row.value}</span>
-          </div>
-        ))}
+        {(() => {
+          const balanc = totalIngresos - totalGastos
+          const numMonths = period !== 'mes' ? Math.max(chartMonths.filter(ym => {
+            const d = buildMonthData(filteredTxs, [ym])[0]
+            return d.ingressos > 0 || d.gastos > 0
+          }).length, 1) : null
+          const rows = [
+            { label: 'Total transaccions', value: filteredTxs.length },
+            { label: 'Total ingressos', value: fmt(totalIngresos) },
+            { label: 'Total despeses', value: fmt(totalGastos) },
+            ...(numMonths ? [
+              { label: 'Mitjana ingressos/mes', value: fmt(totalIngresos / numMonths) },
+              { label: 'Mitjana despeses/mes', value: fmt(totalGastos / numMonths) },
+            ] : []),
+            { label: 'Balanç', value: fmt(balanc), color: balanc >= 0 ? 'var(--green)' : 'var(--red)' },
+            { label: 'Mitjana despesa unitària', value: gastos.length ? fmt(totalGastos / gastos.length) : '—' },
+          ]
+          return rows.map(row => (
+            <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--border)', fontSize: 14 }}>
+              <span style={{ color: 'var(--text2)' }}>{row.label}</span>
+              <span style={{ fontWeight: 600, color: row.color || 'var(--text1)' }}>
+                {row.label === 'Balanç' && balanc > 0 ? '+' : ''}{row.value}
+              </span>
+            </div>
+          ))
+        })()}
       </div>
     </div>
   )

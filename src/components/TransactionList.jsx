@@ -81,15 +81,19 @@ function EditModal({ tx, categories, spreadsheetId, onSaved, onClose }) {
 
 export default function TransactionList({ transactions, spreadsheetId, onDeleted, onUpdated, loading, categories }) {
   const [filter, setFilter] = useState('tots')
+  const [catFilter, setCatFilter] = useState('')
   const [deleting, setDeleting] = useState(null)
   const [editing, setEditing] = useState(null)
 
   const catMap = {}
   ;[...(categories?.gasto || []), ...(categories?.ingreso || [])].forEach(c => { catMap[c.name] = c.icon })
 
-  const filtered = transactions.filter(t =>
+  const typeFiltered = transactions.filter(t =>
     filter === 'tots' || (filter === 'despesa' && t.tipo === 'gasto') || (filter === 'ingrés' && t.tipo === 'ingreso')
   )
+  const filtered = catFilter ? typeFiltered.filter(t => t.categoria === catFilter) : typeFiltered
+
+  const availableCats = [...new Set(typeFiltered.map(t => t.categoria))].sort((a, b) => a.localeCompare(b, 'ca'))
 
   const handleDelete = async (tx) => {
     if (!confirm(`Eliminar "${tx.categoria} ${fmt(tx.importe)}"?`)) return
@@ -105,13 +109,21 @@ export default function TransactionList({ transactions, spreadsheetId, onDeleted
     <div>
       <div className="filter-bar">
         {['tots', 'despesa', 'ingrés'].map(f => (
-          <button key={f} className={`filter-chip ${filter === f ? 'active' : ''}`} onClick={() => setFilter(f)}>
+          <button key={f} className={`filter-chip ${filter === f ? 'active' : ''}`} onClick={() => { setFilter(f); setCatFilter('') }}>
             {f.charAt(0).toUpperCase() + f.slice(1)}
           </button>
         ))}
         <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--text2)', alignSelf: 'center' }}>
           {filtered.length}
         </span>
+      </div>
+      <div className="filter-bar" style={{ marginTop: -6 }}>
+        <button className={`filter-chip ${catFilter === '' ? 'active' : ''}`} onClick={() => setCatFilter('')}>Totes</button>
+        {availableCats.map(c => (
+          <button key={c} className={`filter-chip ${catFilter === c ? 'active' : ''}`} onClick={() => setCatFilter(c)}>
+            {catMap[c] || ''} {c}
+          </button>
+        ))}
       </div>
 
       {loading && <p className="empty">Carregant…</p>}

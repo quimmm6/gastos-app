@@ -15,7 +15,7 @@ function getAvailableMonths(transactions) {
 export default function Dashboard({ transactions, loading, onRefresh, categories }) {
   const allMonths = getAvailableMonths(transactions)
   const [ym, setYm] = useState(currentYearMonth())
-  const [hideTotal, setHideTotal] = useState(false)
+  const [hideTotal, setHideTotal] = useState(true)
 
   const safeYm = allMonths.includes(ym) ? ym : (allMonths[0] || currentYearMonth())
   const idx = allMonths.indexOf(safeYm)
@@ -63,7 +63,7 @@ export default function Dashboard({ transactions, loading, onRefresh, categories
         <div style={{ marginTop: 10, fontSize: 12, color: 'var(--text2)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
           Acumulat {year}:&nbsp;
           {hideTotal
-            ? <strong>***</strong>
+            ? <strong>*****</strong>
             : <strong style={{ color: yearBalance >= 0 ? 'var(--green)' : 'var(--red)' }}>{fmt(yearBalance)}</strong>
           }
           <button onClick={() => setHideTotal(h => !h)}

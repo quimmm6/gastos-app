@@ -133,10 +133,10 @@ export default function App() {
   return (
     <div className="app">
       <header className="app-header">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <button style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'none', border: 'none', color: 'var(--text1)', cursor: 'pointer', padding: 0 }} onClick={() => setTab('inicio')}>
           <Logo size={28} />
           <span className="header-title">FinQuim</span>
-        </div>
+        </button>
         <button className="btn-icon" onClick={handleSignOut} title="Sortir"><LogOut size={18} /></button>
       </header>
 
