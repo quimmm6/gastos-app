@@ -33,13 +33,13 @@ export function loadGoogleAPIs(clientId, apiKey) {
   })
 }
 
-export function signIn() {
+export function signIn(prompt = '') {
   return new Promise((resolve, reject) => {
     tokenClient.callback = (resp) => {
       if (resp.error) reject(resp)
       else resolve(resp)
     }
-    tokenClient.requestAccessToken({ prompt: '' })
+    tokenClient.requestAccessToken({ prompt })
   })
 }
 

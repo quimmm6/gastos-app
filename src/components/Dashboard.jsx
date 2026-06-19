@@ -60,14 +60,14 @@ export default function Dashboard({ transactions, loading, onRefresh, categories
             <div className="value gas">{fmt(gastos)}</div>
           </div>
         </div>
-        <div style={{ marginTop: 10, fontSize: 12, color: 'var(--text2)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-          Acumulat {year}:&nbsp;
+        <div className="balance-accumulated">
+          <span>Acumulat {year}:</span>
           {hideTotal
             ? <strong>*****</strong>
             : <strong style={{ color: yearBalance >= 0 ? 'var(--green)' : 'var(--red)' }}>{fmt(yearBalance)}</strong>
           }
           <button onClick={() => setHideTotal(h => !h)}
-            style={{ background: 'none', border: 'none', color: 'var(--text2)', padding: '2px 4px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+            style={{ background: 'none', border: 'none', color: 'var(--text2)', padding: '2px 4px', cursor: 'pointer', display: 'flex', alignItems: 'center', lineHeight: 1 }}>
             {hideTotal ? <Eye size={14} /> : <EyeOff size={14} />}
           </button>
         </div>

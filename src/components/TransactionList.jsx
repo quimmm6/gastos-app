@@ -113,17 +113,20 @@ export default function TransactionList({ transactions, spreadsheetId, onDeleted
             {f.charAt(0).toUpperCase() + f.slice(1)}
           </button>
         ))}
-        <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--text2)', alignSelf: 'center' }}>
+        <select
+          className={`filter-select ${catFilter ? 'active-filter' : ''}`}
+          value={catFilter}
+          onChange={e => setCatFilter(e.target.value)}
+          style={{ marginLeft: 'auto' }}
+        >
+          <option value="">Categoria ▾</option>
+          {availableCats.map(c => (
+            <option key={c} value={c}>{catMap[c] || ''} {c}</option>
+          ))}
+        </select>
+        <span style={{ fontSize: 12, color: 'var(--text2)', whiteSpace: 'nowrap' }}>
           {filtered.length}
         </span>
-      </div>
-      <div className="filter-bar" style={{ marginTop: -6 }}>
-        <button className={`filter-chip ${catFilter === '' ? 'active' : ''}`} onClick={() => setCatFilter('')}>Totes</button>
-        {availableCats.map(c => (
-          <button key={c} className={`filter-chip ${catFilter === c ? 'active' : ''}`} onClick={() => setCatFilter(c)}>
-            {catMap[c] || ''} {c}
-          </button>
-        ))}
       </div>
 
       {loading && <p className="empty">Carregant…</p>}
