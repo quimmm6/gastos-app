@@ -1,21 +1,18 @@
 import { useState } from 'react'
 import { addTransaction } from '../services/googleSheets'
 
-const CATEGORIAS_GASTO = ['Alimentación', 'Transporte', 'Ocio', 'Salud', 'Ropa', 'Casa', 'Suscripciones', 'Restaurantes', 'Viajes', 'Otros']
-const CATEGORIAS_INGRESO = ['Nómina', 'Trabajo', 'Inversiones', 'Regalo', 'Otros']
-
 function today() {
   return new Date().toISOString().split('T')[0]
 }
 
-export default function AddTransaction({ spreadsheetId, onAdded }) {
+export default function AddTransaction({ spreadsheetId, onAdded, categories }) {
   const [tipo, setTipo] = useState('gasto')
   const [form, setForm] = useState({ fecha: today(), importe: '', categoria: '', descripcion: '' })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
-  const cats = tipo === 'gasto' ? CATEGORIAS_GASTO : CATEGORIAS_INGRESO
+  const cats = tipo === 'gasto' ? categories.gasto : categories.ingreso
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -51,7 +48,7 @@ export default function AddTransaction({ spreadsheetId, onAdded }) {
 
         <div className="form-group">
           <label>Importe (€)</label>
-          <input type="number" min="0" step="0.01" placeholder="0.00" value={form.importe} onChange={set('importe')} inputMode="decimal" />
+          <input type="number" min="0" step="0.01" placeholder="0,00" value={form.importe} onChange={set('importe')} inputMode="decimal" />
         </div>
 
         <div className="form-group">

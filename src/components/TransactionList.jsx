@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { deleteTransaction } from '../services/googleSheets'
+import { fmtDate } from '../utils/dates'
 
 const CAT_ICONS = {
   'Alimentación': '🛒', 'Transporte': '🚗', 'Ocio': '🎬', 'Salud': '💊',
@@ -54,7 +55,7 @@ export default function TransactionList({ transactions, spreadsheetId, onDeleted
             <div className="tx-info">
               <div className="tx-cat">{tx.categoria}</div>
               {tx.descripcion && <div className="tx-desc">{tx.descripcion}</div>}
-              <div className="tx-date">{tx.fecha}</div>
+              <div className="tx-date">{fmtDate(tx.fecha)}</div>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
               <span className={`tx-amount ${tx.tipo}`}>

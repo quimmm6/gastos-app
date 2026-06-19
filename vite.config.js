@@ -23,5 +23,5 @@ export default defineConfig({
       },
     }),
   ],
-  base: '/gastos-app/',
+  base: '/gastos-app/', // nombre del repo en GitHub
 })

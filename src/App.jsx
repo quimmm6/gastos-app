@@ -4,12 +4,22 @@ import Dashboard from './components/Dashboard'
 import AddTransaction from './components/AddTransaction'
 import TransactionList from './components/TransactionList'
 import Stats from './components/Stats'
+import Categories from './components/Categories'
 import Setup from './components/Setup'
 import './App.css'
 
-const TABS = ['inicio', 'añadir', 'lista', 'stats']
-const TAB_LABELS = { inicio: '🏠', añadir: '➕', lista: '📋', stats: '📊' }
-const TAB_NAMES = { inicio: 'Inicio', añadir: 'Añadir', lista: 'Lista', stats: 'Stats' }
+const TABS = ['inicio', 'añadir', 'lista', 'stats', 'cats']
+const TAB_LABELS = { inicio: '🏠', añadir: '➕', lista: '📋', stats: '📊', cats: '🏷️' }
+const TAB_NAMES = { inicio: 'Inicio', añadir: 'Añadir', lista: 'Lista', stats: 'Stats', cats: 'Cats' }
+
+const DEFAULT_CATS = {
+  gasto: ['Alimentación', 'Transporte', 'Ocio', 'Salud', 'Ropa', 'Casa', 'Suscripciones', 'Restaurantes', 'Viajes', 'Otros'],
+  ingreso: ['Nómina', 'Trabajo', 'Inversiones', 'Regalo', 'Otros'],
+}
+
+function loadCats() {
+  try { return JSON.parse(localStorage.getItem('gastos_cats') || 'null') || DEFAULT_CATS } catch { return DEFAULT_CATS }
+}
 
 export default function App() {
   const [config, setConfig] = useState(() => {
@@ -20,6 +30,7 @@ export default function App() {
   const [loading, setLoading] = useState(false)
   const [tab, setTab] = useState('inicio')
   const [apisReady, setApisReady] = useState(false)
+  const [categories, setCategories] = useState(loadCats)
 
   useEffect(() => {
     if (!config) return
@@ -65,6 +76,11 @@ export default function App() {
   const handleSaveConfig = (cfg) => {
     localStorage.setItem('gastos_config', JSON.stringify(cfg))
     setConfig(cfg)
+  }
+
+  const handleSaveCats = (cats) => {
+    localStorage.setItem('gastos_cats', JSON.stringify(cats))
+    setCategories(cats)
   }
 
   const onTransactionAdded = (tx) => {
@@ -113,6 +129,7 @@ export default function App() {
           <AddTransaction
             spreadsheetId={config.spreadsheetId}
             onAdded={onTransactionAdded}
+            categories={categories}
           />
         )}
         {tab === 'lista' && (
@@ -124,6 +141,7 @@ export default function App() {
           />
         )}
         {tab === 'stats' && <Stats transactions={transactions} />}
+        {tab === 'cats' && <Categories categories={categories} onSave={handleSaveCats} />}
       </main>
 
       <nav className="bottom-nav">
