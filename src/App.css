@@ -17,16 +17,16 @@
 }
 
 [data-theme="light"] {
-  --bg: #f2f2f7;
-  --bg2: #ffffff;
-  --bg3: #e8e8f0;
-  --border: #d0d0e0;
-  --text1: #1a1a2e;
-  --text2: #6060a0;
-  --accent: #6366f1;
-  --accent-light: #4f51d8;
-  --green: #16a34a;
-  --red: #dc2626;
+  --bg: #f0f0f5;
+  --bg2: #fafafa;
+  --bg3: #e4e4ec;
+  --border: #d8d8e4;
+  --text1: #1c1c2e;
+  --text2: #7070a0;
+  --accent: #5254c8;
+  --accent-light: #5254c8;
+  --green: #1a9448;
+  --red: #c0392b;
 }
 
 html, body, #root {
