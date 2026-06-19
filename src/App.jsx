@@ -197,7 +197,6 @@ export default function App() {
   }
   const mainSwipeX = useRef(null)
   const mainSwipeY = useRef(null)
-  const [pullRefreshing, setPullRefreshing] = useState(false)
 
   const goTab = (newTab, dir) => { setTabSlideDir(dir); setTabAnimKey(k => k + 1); setTab(newTab) }
 
@@ -212,15 +211,6 @@ export default function App() {
     const dy = e.changedTouches[0].clientY - mainSwipeY.current
     mainSwipeX.current = null
     mainSwipeY.current = null
-
-    // Pull to refresh: swipe down >100px, mostly vertical, not already refreshing
-    if (dy > 100 && Math.abs(dx) < 60 && !pullRefreshing) {
-      setPullRefreshing(true)
-      fetchTransactions().finally(() => setPullRefreshing(false))
-      return
-    }
-
-    // Horizontal tab swipe
     if (Math.abs(dx) < 120 || Math.abs(dy) > 60) return
     const curIdx = TABS.indexOf(tab)
     if (dx < 0 && curIdx < TABS.length - 1) goTab(TABS[curIdx + 1], 'left')
@@ -248,16 +238,14 @@ export default function App() {
             <button className="btn-icon" onClick={toggleTheme} title="Canviar tema">
               {darkMode ? <Sun size={18} /> : <Moon size={18} />}
             </button>
+            <button className="btn-icon" onClick={fetchTransactions} disabled={loading} title="Actualitzar">
+              <RefreshCw size={18} style={{ opacity: loading ? 0.4 : 1, animation: loading ? 'spin 0.8s linear infinite' : 'none' }} />
+            </button>
             <button className="btn-icon" onClick={handleSignOut} title="Sortir"><LogOut size={18} /></button>
           </div>
         </header>
 
         <main className="app-main" onTouchStart={onMainTouchStart} onTouchEnd={onMainTouchEnd}>
-          {pullRefreshing && (
-            <div style={{ display: 'flex', justifyContent: 'center', padding: '8px 0' }}>
-              <RefreshCw size={18} style={{ color: 'var(--accent)', animation: 'spin 0.8s linear infinite' }} />
-            </div>
-          )}
           <div key={tabAnimKey} className={`page-slide page-slide-${tabSlideDir}`}>
             {tab === 'inicio' && <Dashboard transactions={transactions} loading={loading} onRefresh={fetchTransactions} categories={categories} />}
             {tab === 'lista' && <TransactionList transactions={transactions} spreadsheetId={config.spreadsheetId} onDeleted={onTransactionDeleted} onUpdated={onTransactionUpdated} loading={loading} categories={categories} />}
