@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { Home, List, BarChart2, Tag, Plus, LogOut, Moon, Sun, RefreshCw } from 'lucide-react'
-import { loadGoogleAPIs, signIn, signOut, isSignedIn, initSheet, getTransactions } from './services/googleSheets'
+import { loadGoogleAPIs, signIn, signOut, isSignedIn, initSheet, getTransactions, getCategories, saveCategories } from './services/googleSheets'
 import Dashboard from './components/Dashboard'
 import AddTransaction from './components/AddTransaction'
 import TransactionList from './components/TransactionList'
@@ -119,6 +119,19 @@ export default function App() {
       await initSheet(config.spreadsheetId)
       const txs = await getTransactions(config.spreadsheetId)
       setTransactions(txs.reverse())
+      // Sync categories: load from Sheet, migrate from localStorage if not there yet
+      const sheetCats = await getCategories(config.spreadsheetId)
+      if (sheetCats) {
+        setCategories(sheetCats)
+        localStorage.removeItem('gastos_cats')
+        localStorage.removeItem('gastos_cats_v')
+      } else {
+        const localCats = loadCats()
+        await saveCategories(config.spreadsheetId, localCats)
+        setCategories(localCats)
+        localStorage.removeItem('gastos_cats')
+        localStorage.removeItem('gastos_cats_v')
+      }
     } catch (e) { console.error(e) }
     finally { setLoading(false) }
   }, [config])
@@ -178,9 +191,8 @@ export default function App() {
   const handleSignOut = () => { signOut(); setAuthState('ready'); setTransactions([]) }
   const handleSaveConfig = (cfg) => { localStorage.setItem('gastos_config', JSON.stringify(cfg)); setConfig(cfg) }
   const handleSaveCats = (cats) => {
-    localStorage.setItem('gastos_cats', JSON.stringify(cats))
-    localStorage.setItem('gastos_cats_v', String(CATS_VERSION))
     setCategories(cats)
+    saveCategories(config.spreadsheetId, cats)
   }
   const mainSwipeX = useRef(null)
   const goTab = (newTab, dir) => { setTabSlideDir(dir); setTabAnimKey(k => k + 1); setTab(newTab) }

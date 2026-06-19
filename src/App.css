@@ -21,10 +21,10 @@
 }
 
 [data-theme="light"] {
-  --bg: #e4e3f5;
-  --bg2: #f0effa;
-  --bg3: #d8d7ee;
-  --border: #d0d0e6;
+  --bg: #dcd9f5;
+  --bg2: #eceafa;
+  --bg3: #cec9ed;
+  --border: #c4beea;
   --text1: #1a1a2e;
   --text2: #6868a0;
   --accent: #5254c8;
