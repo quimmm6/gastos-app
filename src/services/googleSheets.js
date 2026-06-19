@@ -140,58 +140,6 @@ export async function updateTransaction(spreadsheetId, tx) {
   })
 }
 
-const CATS_SHEET = 'Categories'
-
-export async function getCategories(spreadsheetId) {
-  try {
-    const res = await window.gapi.client.sheets.spreadsheets.values.get({
-      spreadsheetId,
-      range: `${CATS_SHEET}!A1:C`,
-    })
-    const rows = res.result.values || []
-    if (rows.length === 0) return null
-    const cats = { gasto: [], ingreso: [] }
-    rows.forEach(r => {
-      const tipo = r[0], name = r[1], icon = r[2] || '📦'
-      if (tipo === 'gasto' || tipo === 'ingreso') cats[tipo].push({ name, icon })
-    })
-    return cats
-  } catch {
-    return null
-  }
-}
-
-export async function saveCategories(spreadsheetId, cats) {
-  const rows = [
-    ...cats.gasto.map(c => ['gasto', c.name, c.icon]),
-    ...cats.ingreso.map(c => ['ingreso', c.name, c.icon]),
-  ]
-  // Ensure the Categories sheet exists
-  try {
-    const meta = await window.gapi.client.sheets.spreadsheets.get({ spreadsheetId })
-    const exists = meta.result.sheets.some(s => s.properties.title === CATS_SHEET)
-    if (!exists) {
-      await window.gapi.client.sheets.spreadsheets.batchUpdate({
-        spreadsheetId,
-        resource: { requests: [{ addSheet: { properties: { title: CATS_SHEET } } }] },
-      })
-    }
-  } catch {}
-  // Clear and rewrite
-  await window.gapi.client.sheets.spreadsheets.values.clear({
-    spreadsheetId,
-    range: `${CATS_SHEET}!A:C`,
-  })
-  if (rows.length > 0) {
-    await window.gapi.client.sheets.spreadsheets.values.update({
-      spreadsheetId,
-      range: `${CATS_SHEET}!A1`,
-      valueInputOption: 'RAW',
-      resource: { values: rows },
-    })
-  }
-}
-
 export async function reassignCategory(spreadsheetId, oldCat, newCat) {
   const res = await window.gapi.client.sheets.spreadsheets.values.get({
     spreadsheetId,

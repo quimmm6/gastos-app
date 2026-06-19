@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { Home, List, BarChart2, Tag, Plus, LogOut, Moon, Sun } from 'lucide-react'
-import { loadGoogleAPIs, signIn, signOut, isSignedIn, initSheet, getTransactions, getCategories, saveCategories } from './services/googleSheets'
+import { Home, List, BarChart2, Tag, Plus, LogOut, Moon, Sun, RefreshCw } from 'lucide-react'
+import { loadGoogleAPIs, signIn, signOut, isSignedIn, initSheet, getTransactions } from './services/googleSheets'
 import Dashboard from './components/Dashboard'
 import AddTransaction from './components/AddTransaction'
 import TransactionList from './components/TransactionList'
@@ -119,20 +119,6 @@ export default function App() {
       await initSheet(config.spreadsheetId)
       const txs = await getTransactions(config.spreadsheetId)
       setTransactions(txs.reverse())
-      // Load categories from Sheet; migrate from localStorage if Sheet is empty
-      const sheetCats = await getCategories(config.spreadsheetId)
-      if (sheetCats) {
-        setCategories(sheetCats)
-        localStorage.removeItem('gastos_cats')
-        localStorage.removeItem('gastos_cats_v')
-      } else {
-        // First time: push localStorage cats to Sheet
-        const localCats = loadCats()
-        await saveCategories(config.spreadsheetId, localCats)
-        setCategories(localCats)
-        localStorage.removeItem('gastos_cats')
-        localStorage.removeItem('gastos_cats_v')
-      }
     } catch (e) { console.error(e) }
     finally { setLoading(false) }
   }, [config])
@@ -192,26 +178,18 @@ export default function App() {
   const handleSignOut = () => { signOut(); setAuthState('ready'); setTransactions([]) }
   const handleSaveConfig = (cfg) => { localStorage.setItem('gastos_config', JSON.stringify(cfg)); setConfig(cfg) }
   const handleSaveCats = (cats) => {
+    localStorage.setItem('gastos_cats', JSON.stringify(cats))
+    localStorage.setItem('gastos_cats_v', String(CATS_VERSION))
     setCategories(cats)
-    saveCategories(config.spreadsheetId, cats).catch(console.error)
   }
   const mainSwipeX = useRef(null)
-  const mainSwipeY = useRef(null)
-
   const goTab = (newTab, dir) => { setTabSlideDir(dir); setTabAnimKey(k => k + 1); setTab(newTab) }
-
-  const onMainTouchStart = (e) => {
-    mainSwipeX.current = e.touches[0].clientX
-    mainSwipeY.current = e.touches[0].clientY
-  }
-
+  const onMainTouchStart = (e) => { mainSwipeX.current = e.touches[0].clientX }
   const onMainTouchEnd = (e) => {
     if (mainSwipeX.current === null) return
     const dx = e.changedTouches[0].clientX - mainSwipeX.current
-    const dy = e.changedTouches[0].clientY - mainSwipeY.current
     mainSwipeX.current = null
-    mainSwipeY.current = null
-    if (Math.abs(dx) < 120 || Math.abs(dy) > 60) return
+    if (Math.abs(dx) < 120) return
     const curIdx = TABS.indexOf(tab)
     if (dx < 0 && curIdx < TABS.length - 1) goTab(TABS[curIdx + 1], 'left')
     if (dx > 0 && curIdx > 0) goTab(TABS[curIdx - 1], 'right')
@@ -238,9 +216,7 @@ export default function App() {
             <button className="btn-icon" onClick={toggleTheme} title="Canviar tema">
               {darkMode ? <Sun size={18} /> : <Moon size={18} />}
             </button>
-            <button className="btn-icon" onClick={fetchTransactions} disabled={loading} title="Actualitzar">
-              <RefreshCw size={18} style={{ opacity: loading ? 0.4 : 1, animation: loading ? 'spin 0.8s linear infinite' : 'none' }} />
-            </button>
+            <button className="btn-icon" onClick={fetchTransactions} disabled={loading} title="Actualitzar"><RefreshCw size={18} style={{ opacity: loading ? 0.4 : 1 }} /></button>
             <button className="btn-icon" onClick={handleSignOut} title="Sortir"><LogOut size={18} /></button>
           </div>
         </header>
