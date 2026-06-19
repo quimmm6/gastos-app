@@ -8,13 +8,13 @@ const svgIcon = (size) => {
   const sw = 2.8 * k
   const sw2 = 3.2 * k
   const sw3 = 2 * k
-  // Q: slightly smaller, centered — shift centre to (18,17), r=11
+  // Q centrada al quadrat, més petita
   const qk = s / 40
-  const qcx = 17 * qk, qcy = 16 * qk, qr = 11 * qk
-  // Q tail: starts just inside circle boundary (22,22) → (32,32)
-  const tx1 = 22*qk, ty1 = 21*qk, tx2 = 32*qk, ty2 = 31*qk
-  // Chart polyline (scaled with Q)
-  const pts = [[10,19],[13.5,14],[17,17],[21,11]].map(([x,y]) => `${x*qk},${y*qk}`).join(' ')
+  const qcx = 20 * qk, qcy = 19 * qk, qr = 9 * qk
+  // Tail: just touching inside the circle → bottom-right
+  const tx1 = 22*qk, ty1 = 22*qk, tx2 = 30*qk, ty2 = 30*qk
+  // Chart polyline centred inside circle
+  const pts = [[13,22],[16,17],[20,20],[24,14]].map(([x,y]) => `${x*qk},${y*qk}`).join(' ')
 
   return `<svg width="${s}" height="${s}" viewBox="0 0 ${s} ${s}" xmlns="http://www.w3.org/2000/svg">
   <!-- Dark background -->
