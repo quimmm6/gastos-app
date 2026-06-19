@@ -74,7 +74,7 @@ function SplashLogo({ size = 120 }) {
       <circle cx={cx} cy={cy} r={r} stroke="#818cf8" strokeWidth={2.8 * k}
         strokeDasharray={circ} strokeDashoffset={circ}
         style={{ animation: 'drawQ 1.2s ease forwards' }} />
-      <line x1={19*k} y1={19*k} x2={33*k} y2={33*k}
+      <line x1={22*k} y1={22*k} x2={33*k} y2={33*k}
         stroke="#818cf8" strokeWidth={3.2 * k} strokeLinecap="round"
         strokeDasharray={20 * k} strokeDashoffset={20 * k}
         style={{ animation: 'drawQtail 0.4s 1.0s ease forwards' }} />
@@ -136,16 +136,27 @@ export default function App() {
         fetchTransactions()
         return
       }
-      // Try silent sign-in (works if user already authorized this app in same browser session)
-      try {
-        await signIn('none')
-        clearTimeout(splashTimer)
+      // Try silent first, then auto-popup (no button needed)
+      const tryAuth = async () => {
+        try {
+          await signIn('none')
+          return true
+        } catch {}
+        try {
+          // Auto-trigger popup: if user has active Google session it closes itself
+          await signIn('')
+          return true
+        } catch {
+          return false
+        }
+      }
+      const ok = await tryAuth()
+      clearTimeout(splashTimer)
+      if (ok) {
         setAuthState('authed')
         fetchTransactions()
-      } catch {
-        // Silent failed → wait for splash then show login button
-        clearTimeout(splashTimer)
-        setAuthState(prev => prev === 'splash' ? 'ready' : 'ready')
+      } else {
+        setAuthState('ready') // fallback: show button
       }
     })
 

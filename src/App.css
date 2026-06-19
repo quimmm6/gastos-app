@@ -245,10 +245,10 @@ button { cursor: pointer; }
 .balance-mini .value.gas { color: var(--red); }
 
 .balance-accumulated {
-  margin-top: 12px;
+  margin-top: 14px; margin-bottom: 2px;
   display: flex; align-items: center; justify-content: center; gap: 6px;
-  font-size: 12px; color: var(--text2); line-height: 1;
-  min-height: 24px;
+  font-size: 12px; color: var(--text2);
+  min-height: 28px; line-height: 28px;
 }
 
 .recent-list { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
@@ -301,7 +301,7 @@ button { cursor: pointer; }
 .empty { text-align: center; color: var(--text2); padding: 40px 0; font-size: 14px; line-height: 1.6; }
 
 /* ── Filter bar ── */
-.filter-bar { display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: nowrap; align-items: center; overflow-x: auto; }
+.filter-bar { display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: nowrap; align-items: center; overflow-x: hidden; }
 .filter-chip {
   padding: 6px 14px; border-radius: 20px; font-size: 12px;
   border: 1px solid var(--border); background: var(--bg2); color: var(--text2);
@@ -312,9 +312,10 @@ button { cursor: pointer; }
 /* ── List filter select ── */
 .filter-select {
   background: var(--bg2); border: 1px solid var(--border); color: var(--text2);
-  border-radius: 20px; padding: 5px 12px; font-size: 12px;
+  border-radius: 20px; padding: 5px 10px; font-size: 12px;
   -webkit-appearance: none; appearance: none;
-  cursor: pointer; flex-shrink: 0;
+  cursor: pointer; min-width: 0; max-width: 130px;
+  overflow: hidden; text-overflow: ellipsis;
 }
 .filter-select.active-filter { border-color: var(--accent); color: var(--accent); background: #6366f115; }
 
