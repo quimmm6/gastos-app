@@ -55,7 +55,6 @@ export function isSignedIn() {
   return !!window.gapi?.client?.getToken()
 }
 
-// Inicializa la hoja con cabeceras si está vacía
 export async function initSheet(spreadsheetId) {
   const res = await window.gapi.client.sheets.spreadsheets.values.get({
     spreadsheetId,
@@ -101,7 +100,6 @@ export async function addTransaction(spreadsheetId, tx) {
 }
 
 export async function deleteTransaction(spreadsheetId, id) {
-  // Buscar la fila por id y borrarla
   const res = await window.gapi.client.sheets.spreadsheets.values.get({
     spreadsheetId,
     range: 'F:F',
@@ -110,7 +108,6 @@ export async function deleteTransaction(spreadsheetId, id) {
   const rowIndex = rows.findIndex((r) => r[0] === id)
   if (rowIndex < 1) return
 
-  // Obtener el sheetId (primera hoja)
   const meta = await window.gapi.client.sheets.spreadsheets.get({ spreadsheetId })
   const sheetId = meta.result.sheets[0].properties.sheetId
 
@@ -124,4 +121,24 @@ export async function deleteTransaction(spreadsheetId, id) {
       }],
     },
   })
+}
+
+export async function reassignCategory(spreadsheetId, oldCat, newCat) {
+  const res = await window.gapi.client.sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range: 'A2:F',
+  })
+  const rows = res.result.values || []
+  const updates = []
+  rows.forEach((row, i) => {
+    if (row[3] === oldCat) {
+      updates.push({ range: `D${i + 2}`, values: [[newCat]] })
+    }
+  })
+  if (updates.length === 0) return 0
+  await window.gapi.client.sheets.spreadsheets.values.batchUpdate({
+    spreadsheetId,
+    resource: { valueInputOption: 'RAW', data: updates },
+  })
+  return updates.length
 }

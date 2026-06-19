@@ -1,18 +1,19 @@
 import { useState } from 'react'
+import { X } from 'lucide-react'
 import { addTransaction } from '../services/googleSheets'
 
 function today() {
   return new Date().toISOString().split('T')[0]
 }
 
-export default function AddTransaction({ spreadsheetId, onAdded, categories }) {
+export default function AddTransaction({ spreadsheetId, onAdded, categories, onCancel }) {
   const [tipo, setTipo] = useState('gasto')
   const [form, setForm] = useState({ fecha: today(), importe: '', categoria: '', descripcion: '' })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
-  const cats = tipo === 'gasto' ? categories.gasto : categories.ingreso
+  const cats = tipo === 'gasto' ? (categories?.gasto || []) : (categories?.ingreso || [])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -26,21 +27,26 @@ export default function AddTransaction({ spreadsheetId, onAdded, categories }) {
       setError('Error al guardar. Comprueba la conexión.')
       console.error(err)
     } finally {
-      setSaving(false)
-    }
+      setSaving(false) }
   }
 
   return (
     <div>
-      <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 16 }}>Nueva transacción</h2>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
+        <h2 style={{ fontSize: 18, fontWeight: 700 }}>Nueva transacción</h2>
+        {onCancel && <button className="btn-icon" onClick={onCancel}><X size={20} /></button>}
+      </div>
+
       <form onSubmit={handleSubmit}>
         <div className="form-group">
           <label>Tipo</label>
           <div className="tipo-toggle">
-            <button type="button" className={`tipo-btn ${tipo === 'gasto' ? 'active gasto' : ''}`} onClick={() => { setTipo('gasto'); setForm(f => ({ ...f, categoria: '' })) }}>
+            <button type="button" className={`tipo-btn ${tipo === 'gasto' ? 'active gasto' : ''}`}
+              onClick={() => { setTipo('gasto'); setForm(f => ({ ...f, categoria: '' })) }}>
               🔴 Gasto
             </button>
-            <button type="button" className={`tipo-btn ${tipo === 'ingreso' ? 'active ingreso' : ''}`} onClick={() => { setTipo('ingreso'); setForm(f => ({ ...f, categoria: '' })) }}>
+            <button type="button" className={`tipo-btn ${tipo === 'ingreso' ? 'active ingreso' : ''}`}
+              onClick={() => { setTipo('ingreso'); setForm(f => ({ ...f, categoria: '' })) }}>
               🟢 Ingreso
             </button>
           </div>
@@ -55,7 +61,7 @@ export default function AddTransaction({ spreadsheetId, onAdded, categories }) {
           <label>Categoría</label>
           <select value={form.categoria} onChange={set('categoria')}>
             <option value="">Selecciona…</option>
-            {cats.map(c => <option key={c}>{c}</option>)}
+            {cats.map(c => <option key={c.name} value={c.name}>{c.icon} {c.name}</option>)}
           </select>
         </div>
 
