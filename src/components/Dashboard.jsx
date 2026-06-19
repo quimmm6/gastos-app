@@ -1,5 +1,5 @@
 import { ChevronLeft, ChevronRight, RefreshCw, Eye, EyeOff } from 'lucide-react'
-import { useState, useRef } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import { fmtDate, currentYearMonth, monthName, toYearMonth } from '../utils/dates'
 
 function fmt(n) {
@@ -16,6 +16,8 @@ export default function Dashboard({ transactions, loading, onRefresh, categories
   const allMonths = getAvailableMonths(transactions)
   const [ym, setYm] = useState(currentYearMonth())
   const [hideTotal, setHideTotal] = useState(true)
+  const [monthAnimKey, setMonthAnimKey] = useState(0)
+  const [monthSlideDir, setMonthSlideDir] = useState('left')
 
   const safeYm = allMonths.includes(ym) ? ym : (allMonths[0] || currentYearMonth())
   const idx = allMonths.indexOf(safeYm)
@@ -36,28 +38,30 @@ export default function Dashboard({ transactions, loading, onRefresh, categories
   ;[...(categories?.gasto || []), ...(categories?.ingreso || [])].forEach(c => { catMap[c.name] = c.icon })
 
   const swipeStartX = useRef(null)
+  const goMonth = (newYm, dir) => { setMonthSlideDir(dir); setMonthAnimKey(k => k + 1); setYm(newYm) }
   const onTouchStart = (e) => { swipeStartX.current = e.touches[0].clientX }
   const onTouchEnd = (e) => {
     if (swipeStartX.current === null) return
     const dx = e.changedTouches[0].clientX - swipeStartX.current
     swipeStartX.current = null
     if (Math.abs(dx) < 40) return
-    if (dx < 0 && canNext) setYm(allMonths[idx - 1])  // swipe left → mes nou
-    if (dx > 0 && canPrev) setYm(allMonths[idx + 1])  // swipe right → mes vell
+    if (dx < 0 && canNext) goMonth(allMonths[idx - 1], 'left')
+    if (dx > 0 && canPrev) goMonth(allMonths[idx + 1], 'right')
   }
 
   return (
     <div>
       <div className="month-nav">
-        <button className="btn-icon" onClick={() => setYm(allMonths[idx + 1])} disabled={!canPrev}>
+        <button className="btn-icon" onClick={() => goMonth(allMonths[idx + 1], 'right')} disabled={!canPrev}>
           <ChevronLeft size={20} />
         </button>
         <span className="month-label">{monthName(safeYm)}</span>
-        <button className="btn-icon" onClick={() => setYm(allMonths[idx - 1])} disabled={!canNext}>
+        <button className="btn-icon" onClick={() => goMonth(allMonths[idx - 1], 'left')} disabled={!canNext}>
           <ChevronRight size={20} />
         </button>
       </div>
 
+      <div key={monthAnimKey} className={`page-slide page-slide-${monthSlideDir}`}>
       <div className="card balance-card" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd} style={{ touchAction: 'pan-y' }}>
         <div className="balance-label">Balanç del mes</div>
         <div className={`balance-amount ${balance >= 0 ? 'positive' : 'negative'}`}>{fmt(balance)}</div>
@@ -82,6 +86,7 @@ export default function Dashboard({ transactions, loading, onRefresh, categories
             {hideTotal ? <Eye size={14} /> : <EyeOff size={14} />}
           </button>
         </div>
+      </div>
       </div>
 
       <div style={{ marginTop: 20 }}>

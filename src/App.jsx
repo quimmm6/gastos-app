@@ -95,6 +95,8 @@ export default function App() {
   const [transactions, setTransactions] = useState([])
   const [loading, setLoading] = useState(false)
   const [tab, setTab] = useState('inicio')
+  const [tabAnimKey, setTabAnimKey] = useState(0)
+  const [tabSlideDir, setTabSlideDir] = useState('left')
   const [showAdd, setShowAdd] = useState(false)
   const [categories, setCategories] = useState(loadCats)
   const [darkMode, setDarkMode] = useState(() => {
@@ -180,6 +182,19 @@ export default function App() {
     localStorage.setItem('gastos_cats_v', String(CATS_VERSION))
     setCategories(cats)
   }
+  const mainSwipeX = useRef(null)
+  const goTab = (newTab, dir) => { setTabSlideDir(dir); setTabAnimKey(k => k + 1); setTab(newTab) }
+  const onMainTouchStart = (e) => { mainSwipeX.current = e.touches[0].clientX }
+  const onMainTouchEnd = (e) => {
+    if (mainSwipeX.current === null) return
+    const dx = e.changedTouches[0].clientX - mainSwipeX.current
+    mainSwipeX.current = null
+    if (Math.abs(dx) < 120) return
+    const curIdx = TABS.indexOf(tab)
+    if (dx < 0 && curIdx < TABS.length - 1) goTab(TABS[curIdx + 1], 'left')
+    if (dx > 0 && curIdx > 0) goTab(TABS[curIdx - 1], 'right')
+  }
+
   const onTransactionAdded = (tx) => { setTransactions((prev) => [tx, ...prev]); setShowAdd(false) }
   const onTransactionDeleted = (id) => setTransactions((prev) => prev.filter((t) => t.id !== id))
   const onTransactionUpdated = (updated) => setTransactions((prev) => prev.map(t => t.id === updated.id ? updated : t))
@@ -205,11 +220,13 @@ export default function App() {
           </div>
         </header>
 
-        <main className="app-main">
-          {tab === 'inicio' && <Dashboard transactions={transactions} loading={loading} onRefresh={fetchTransactions} categories={categories} />}
-          {tab === 'lista' && <TransactionList transactions={transactions} spreadsheetId={config.spreadsheetId} onDeleted={onTransactionDeleted} onUpdated={onTransactionUpdated} loading={loading} categories={categories} />}
-          {tab === 'stats' && <Stats transactions={transactions} />}
-          {tab === 'cats' && <Categories categories={categories} onSave={handleSaveCats} transactions={transactions} spreadsheetId={config.spreadsheetId} onReassigned={onCategoryReassigned} />}
+        <main className="app-main" onTouchStart={onMainTouchStart} onTouchEnd={onMainTouchEnd}>
+          <div key={tabAnimKey} className={`page-slide page-slide-${tabSlideDir}`}>
+            {tab === 'inicio' && <Dashboard transactions={transactions} loading={loading} onRefresh={fetchTransactions} categories={categories} />}
+            {tab === 'lista' && <TransactionList transactions={transactions} spreadsheetId={config.spreadsheetId} onDeleted={onTransactionDeleted} onUpdated={onTransactionUpdated} loading={loading} categories={categories} />}
+            {tab === 'stats' && <Stats transactions={transactions} />}
+            {tab === 'cats' && <Categories categories={categories} onSave={handleSaveCats} transactions={transactions} spreadsheetId={config.spreadsheetId} onReassigned={onCategoryReassigned} />}
+          </div>
         </main>
 
         <button className="fab" onClick={() => setShowAdd(true)} aria-label="Afegir transacció">
@@ -232,7 +249,7 @@ export default function App() {
           {TABS.map((t) => {
             const Icon = TAB_ICONS[t]
             return (
-              <button key={t} className={`nav-item ${tab === t ? 'active' : ''}`} onClick={() => setTab(t)}>
+              <button key={t} className={`nav-item ${tab === t ? 'active' : ''}`} onClick={() => { const d = TABS.indexOf(t) > TABS.indexOf(tab) ? 'left' : 'right'; goTab(t, d) }}>
                 <Icon size={22} strokeWidth={tab === t ? 2.2 : 1.6} />
                 <span className="nav-label">{TAB_NAMES[t]}</span>
               </button>
