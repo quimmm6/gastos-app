@@ -108,16 +108,16 @@ export default function TransactionList({ transactions, spreadsheetId, onDeleted
   return (
     <div>
       <div className="filter-bar">
-        {['tots', 'despesa', 'ingrés'].map(f => (
-          <button key={f} className={`filter-chip ${filter === f ? 'active' : ''}`} onClick={() => { setFilter(f); setCatFilter('') }}>
-            {f.charAt(0).toUpperCase() + f.slice(1)}
+        {[['tots', 'Tots'], ['despesa', 'Despeses'], ['ingrés', 'Ingressos']].map(([v, l]) => (
+          <button key={v} className={`filter-chip ${filter === v ? 'active' : ''}`} onClick={() => { setFilter(v); setCatFilter('') }}>
+            {l}
           </button>
         ))}
         <select
           className={`filter-select ${catFilter ? 'active-filter' : ''}`}
           value={catFilter}
           onChange={e => setCatFilter(e.target.value)}
-          style={{ marginLeft: 'auto' }}
+          style={{ marginLeft: 'auto', flexShrink: 1 }}
         >
           <option value="">Categoria ▾</option>
           {availableCats.map(c => (

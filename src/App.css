@@ -231,7 +231,7 @@ button { cursor: pointer; }
 }
 .month-label { font-size: 15px; font-weight: 700; text-transform: capitalize; }
 
-.balance-card { text-align: center; padding: 24px 16px; }
+.balance-card { text-align: center; padding: 14px 14px 10px; }
 .balance-label { font-size: 11px; color: var(--text2); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 6px; }
 .balance-amount { font-size: 40px; font-weight: 700; letter-spacing: -1px; }
 .balance-amount.positive { color: var(--green); }
@@ -314,7 +314,7 @@ button { cursor: pointer; }
   background: var(--bg2); border: 1px solid var(--border); color: var(--text2);
   border-radius: 20px; padding: 5px 10px; font-size: 12px;
   -webkit-appearance: none; appearance: none;
-  cursor: pointer; min-width: 0; max-width: 130px;
+  cursor: pointer; min-width: 0; width: 110px; text-align: center;
   overflow: hidden; text-overflow: ellipsis;
 }
 .filter-select.active-filter { border-color: var(--accent); color: var(--accent); background: #6366f115; }

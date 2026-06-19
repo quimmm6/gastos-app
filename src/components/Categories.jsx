@@ -47,15 +47,17 @@ export default function Categories({ categories, onSave, transactions, spreadshe
   const [editIdx, setEditIdx] = useState(null)
   const [editName, setEditName] = useState('')
   const [editIcon, setEditIcon] = useState('')
-  const [saved, setSaved] = useState(false)
   const [reassigning, setReassigning] = useState(null)
   const [renaming, setRenaming] = useState(false)
+
+  const saveCats = (updated) => { setCats(updated); onSave(updated) }
 
   const add = () => {
     const val = newName.trim()
     if (!val || cats[tab].some(c => c.name === val)) return
-    setCats(c => ({ ...c, [tab]: [...c[tab], { name: val, icon: newIcon }] }))
-    setNewName(''); setNewIcon('📦'); setSaved(false)
+    const updated = { ...cats, [tab]: [...cats[tab], { name: val, icon: newIcon }] }
+    saveCats(updated)
+    setNewName(''); setNewIcon('📦')
   }
 
   const startEdit = (i) => {
@@ -79,12 +81,10 @@ export default function Categories({ categories, onSave, transactions, spreadshe
       setRenaming(false)
     }
 
-    setCats(c => {
-      const arr = [...c[tab]]
-      arr[i] = { name: newName2, icon: editIcon }
-      return { ...c, [tab]: arr }
-    })
-    setEditIdx(null); setSaved(false)
+    const arr = [...cats[tab]]
+    arr[i] = { name: newName2, icon: editIcon }
+    saveCats({ ...cats, [tab]: arr })
+    setEditIdx(null)
   }
 
   const requestRemove = (i) => {
@@ -99,15 +99,13 @@ export default function Categories({ categories, onSave, transactions, spreadshe
     }
   }
 
-  const remove = (i) => { setCats(c => ({ ...c, [tab]: c[tab].filter((_, j) => j !== i) })); setSaved(false) }
+  const remove = (i) => { saveCats({ ...cats, [tab]: cats[tab].filter((_, j) => j !== i) }) }
 
   const handleReassignConfirm = (oldCat, newCat) => {
     onReassigned(oldCat, newCat)
     remove(reassigning.idx)
     setReassigning(null)
   }
-
-  const handleSave = () => { onSave(cats); setSaved(true) }
 
   return (
     <div>
@@ -179,10 +177,6 @@ export default function Categories({ categories, onSave, transactions, spreadshe
           </div>
         )})}
       </div>
-
-      <button className="btn-primary" onClick={handleSave}>
-        {saved ? '✓ Desat' : 'Desar canvis'}
-      </button>
 
       {reassigning && (
         <ReassignModal

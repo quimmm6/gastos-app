@@ -85,7 +85,7 @@ export default function Stats({ transactions }) {
     <div>
       {/* Period selector */}
       <div style={{ display: 'flex', gap: 6, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
-        {[['ytd', 'YTD'], ['any', 'Any natural'], ['mes', '1 mes']].map(([v, l]) => (
+        {[['ytd', 'YTD'], ['any', 'Any'], ['mes', 'Mes']].map(([v, l]) => (
           <button key={v} className={`filter-chip ${period === v ? 'active' : ''}`} onClick={() => setPeriod(v)}>{l}</button>
         ))}
         {period === 'any' && (
@@ -174,7 +174,6 @@ export default function Stats({ transactions }) {
               { label: 'Mitjana despeses/mes', value: fmt(totalGastos / numMonths) },
             ] : []),
             { label: 'Balanç', value: fmt(balanc), color: balanc >= 0 ? 'var(--green)' : 'var(--red)' },
-            { label: 'Mitjana despesa unitària', value: gastos.length ? fmt(totalGastos / gastos.length) : '—' },
           ]
           return rows.map(row => (
             <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--border)', fontSize: 14 }}>
