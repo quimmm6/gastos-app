@@ -1,5 +1,5 @@
 import { ChevronLeft, ChevronRight, RefreshCw, Eye, EyeOff } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { fmtDate, currentYearMonth, monthName, toYearMonth } from '../utils/dates'
 
 function fmt(n) {
@@ -35,6 +35,17 @@ export default function Dashboard({ transactions, loading, onRefresh, categories
   const catMap = {}
   ;[...(categories?.gasto || []), ...(categories?.ingreso || [])].forEach(c => { catMap[c.name] = c.icon })
 
+  const swipeStartX = useRef(null)
+  const onTouchStart = (e) => { swipeStartX.current = e.touches[0].clientX }
+  const onTouchEnd = (e) => {
+    if (swipeStartX.current === null) return
+    const dx = e.changedTouches[0].clientX - swipeStartX.current
+    swipeStartX.current = null
+    if (Math.abs(dx) < 40) return
+    if (dx < 0 && canNext) setYm(allMonths[idx - 1])  // swipe left → mes nou
+    if (dx > 0 && canPrev) setYm(allMonths[idx + 1])  // swipe right → mes vell
+  }
+
   return (
     <div>
       <div className="month-nav">
@@ -47,7 +58,7 @@ export default function Dashboard({ transactions, loading, onRefresh, categories
         </button>
       </div>
 
-      <div className="card balance-card">
+      <div className="card balance-card" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd} style={{ touchAction: 'pan-y' }}>
         <div className="balance-label">Balanç del mes</div>
         <div className={`balance-amount ${balance >= 0 ? 'positive' : 'negative'}`}>{fmt(balance)}</div>
         <div className="balance-row">
