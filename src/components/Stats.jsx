@@ -1,5 +1,9 @@
 import { useState } from 'react'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts'
+
+function cssVar(name) {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim()
+}
 import { monthName } from '../utils/dates'
 
 const COLORS = ['#6366f1', '#22c55e', '#f59e0b', '#ef4444', '#06b6d4', '#a855f7', '#f97316', '#84cc16']
@@ -109,11 +113,11 @@ export default function Stats({ transactions }) {
           <div style={{ width: '100%', height: 220 }}>
             <ResponsiveContainer>
               <BarChart data={monthData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#2e2e42" />
-                <XAxis dataKey="mes" tick={{ fill: '#9090b0', fontSize: 11 }} />
-                <YAxis tick={{ fill: '#9090b0', fontSize: 10 }} tickFormatter={v => `${v}€`} />
+                <CartesianGrid strokeDasharray="3 3" stroke={cssVar('--chart-grid')} />
+                <XAxis dataKey="mes" tick={{ fill: cssVar('--chart-tick'), fontSize: 11 }} />
+                <YAxis tick={{ fill: cssVar('--chart-tick'), fontSize: 10 }} tickFormatter={v => `${v}€`} />
                 <Tooltip
-                  contentStyle={{ background: '#1a1a24', border: '1px solid #2e2e42', borderRadius: 8, fontSize: 12 }}
+                  contentStyle={{ background: cssVar('--tooltip-bg'), border: `1px solid ${cssVar('--tooltip-border')}`, borderRadius: 8, fontSize: 12, color: cssVar('--text1') }}
                   formatter={(v, name) => [fmt(v), name === 'gastos' ? 'Despeses' : name === 'ingressos' ? 'Ingressos' : 'Balanç']}
                 />
                 <Bar dataKey="ingressos" fill="#22c55e" radius={[4, 4, 0, 0]} />
@@ -141,7 +145,7 @@ export default function Stats({ transactions }) {
                   label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false} fontSize={10}>
                   {catData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                 </Pie>
-                <Tooltip formatter={(v) => fmt(v)} contentStyle={{ background: '#1a1a24', border: '1px solid #2e2e42', borderRadius: 8, fontSize: 12 }} />
+                <Tooltip formatter={(v) => fmt(v)} contentStyle={{ background: cssVar('--tooltip-bg'), border: `1px solid ${cssVar('--tooltip-border')}`, borderRadius: 8, fontSize: 12, color: cssVar('--text1') }} />
               </PieChart>
             </ResponsiveContainer>
           </div>

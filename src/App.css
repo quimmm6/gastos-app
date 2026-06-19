@@ -14,20 +14,29 @@
   --radius: 14px;
   --radius-sm: 8px;
   --nav-height: 62px;
+  --chart-grid: #2e2e42;
+  --chart-tick: #9090b0;
+  --tooltip-bg: #1a1a24;
+  --tooltip-border: #2e2e42;
 }
 
 [data-theme="light"] {
-  --bg: #f0f0f5;
-  --bg2: #fafafa;
-  --bg3: #e4e4ec;
-  --border: #d8d8e4;
-  --text1: #1c1c2e;
-  --text2: #7070a0;
+  --bg: #ededf8;
+  --bg2: #f7f7fc;
+  --bg3: #e2e2f0;
+  --border: #d0d0e6;
+  --text1: #1a1a2e;
+  --text2: #6868a0;
   --accent: #5254c8;
   --accent-light: #5254c8;
-  --green: #1a9448;
-  --red: #c0392b;
+  --green: #1a8c42;
+  --red: #be3030;
+  --chart-grid: #d0d0e6;
+  --chart-tick: #8888b8;
+  --tooltip-bg: #f0f0fa;
+  --tooltip-border: #c8c8e8;
 }
+
 
 html, body, #root {
   height: 100%;
