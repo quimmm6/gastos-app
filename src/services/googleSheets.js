@@ -142,23 +142,27 @@ export async function updateTransaction(spreadsheetId, tx) {
 
 const CATS_SHEET = 'Categories'
 
+// Returns parsed cats, or null if the sheet/tab doesn't exist yet, or throws on other errors
 export async function getCategories(spreadsheetId) {
+  let res
   try {
-    const res = await window.gapi.client.sheets.spreadsheets.values.get({
+    res = await window.gapi.client.sheets.spreadsheets.values.get({
       spreadsheetId,
       range: `${CATS_SHEET}!A1:C`,
     })
-    const rows = res.result.values || []
-    if (rows.length === 0) return null
-    const cats = { gasto: [], ingreso: [] }
-    rows.forEach(r => {
-      const tipo = r[0], name = r[1], icon = r[2] || '📦'
-      if (tipo === 'gasto' || tipo === 'ingreso') cats[tipo].push({ name, icon })
-    })
-    return cats
-  } catch {
-    return null
+  } catch (e) {
+    // 400 = sheet tab doesn't exist yet → treat as empty
+    if (e?.status === 400 || e?.result?.error?.code === 400) return null
+    throw e
   }
+  const rows = res.result.values || []
+  if (rows.length === 0) return null
+  const cats = { gasto: [], ingreso: [] }
+  rows.forEach(r => {
+    const tipo = r[0], name = r[1], icon = r[2] || '📦'
+    if (tipo === 'gasto' || tipo === 'ingreso') cats[tipo].push({ name, icon })
+  })
+  return cats
 }
 
 export async function saveCategories(spreadsheetId, cats) {

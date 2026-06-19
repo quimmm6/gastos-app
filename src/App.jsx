@@ -119,19 +119,18 @@ export default function App() {
       await initSheet(config.spreadsheetId)
       const txs = await getTransactions(config.spreadsheetId)
       setTransactions(txs.reverse())
-      // Sync categories: load from Sheet, migrate from localStorage if not there yet
+      // Load categories from Sheet; if empty, migrate from localStorage once
       const sheetCats = await getCategories(config.spreadsheetId)
       if (sheetCats) {
         setCategories(sheetCats)
-        localStorage.removeItem('gastos_cats')
-        localStorage.removeItem('gastos_cats_v')
       } else {
+        // Sheet has no categories yet — push localStorage (or defaults) once
         const localCats = loadCats()
         await saveCategories(config.spreadsheetId, localCats)
         setCategories(localCats)
-        localStorage.removeItem('gastos_cats')
-        localStorage.removeItem('gastos_cats_v')
       }
+      localStorage.removeItem('gastos_cats')
+      localStorage.removeItem('gastos_cats_v')
     } catch (e) { console.error(e) }
     finally { setLoading(false) }
   }, [config])
