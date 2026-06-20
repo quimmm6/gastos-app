@@ -379,7 +379,7 @@ export default function TransactionList({ transactions, spreadsheetId, onDeleted
         {/* Categories — span 2 files */}
         <select className={`filter-chip cat-btn ${catActive ? 'active' : ''}`} value={catFilter}
           onChange={e => setCatFilter(e.target.value)}>
-          <option value="">Catego-{'\n'}ries ▾</option>
+          <option value="">Categories ▾</option>
           {availableCats.map(c => <option key={c} value={c}>{catMap[c] || ''} {c}</option>)}
         </select>
         {/* Fila 2: recurrència */}

@@ -323,7 +323,7 @@ button { cursor: pointer; }
 /* Dual filter grid with spanning categories button */
 .filter-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr) 52px;
+  grid-template-columns: repeat(3, 1fr) 68px;
   grid-template-rows: auto auto;
   gap: 4px;
   margin-bottom: 14px;
@@ -336,7 +336,6 @@ button { cursor: pointer; }
   padding: 4px 6px;
   font-size: 10px; line-height: 1.3;
   text-align: center;
-  word-break: break-word;
   -webkit-appearance: none; appearance: none;
   cursor: pointer;
 }

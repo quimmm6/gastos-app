@@ -16,6 +16,7 @@ export default function Dashboard({ transactions, loading, onRefresh, categories
   const allMonths = getAvailableMonths(transactions)
   const [ym, setYm] = useState(currentYearMonth())
   const [hideTotal, setHideTotal] = useState(true)
+  const [showAll, setShowAll] = useState(false)
   const [monthAnimKey, setMonthAnimKey] = useState(0)
   const [monthSlideDir, setMonthSlideDir] = useState('left')
 
@@ -38,7 +39,7 @@ export default function Dashboard({ transactions, loading, onRefresh, categories
   ;[...(categories?.gasto || []), ...(categories?.ingreso || [])].forEach(c => { catMap[c.name] = c.icon })
 
   const swipeStartX = useRef(null)
-  const goMonth = (newYm, dir) => { setMonthSlideDir(dir); setMonthAnimKey(k => k + 1); setYm(newYm) }
+  const goMonth = (newYm, dir) => { setMonthSlideDir(dir); setMonthAnimKey(k => k + 1); setYm(newYm); setShowAll(false) }
   const onTouchStart = (e) => { swipeStartX.current = e.touches[0].clientX }
   const onTouchEnd = (e) => {
     if (swipeStartX.current === null) return
@@ -105,7 +106,7 @@ export default function Dashboard({ transactions, loading, onRefresh, categories
         )}
 
         <div className="recent-list">
-          {monthly.map((tx) => (
+          {(showAll ? monthly : monthly.slice(0, 10)).map((tx) => (
             <div key={tx.id} className="tx-item">
               <span className="tx-icon">{catMap[tx.categoria] || '💰'}</span>
               <div className="tx-info">
@@ -119,6 +120,12 @@ export default function Dashboard({ transactions, loading, onRefresh, categories
             </div>
           ))}
         </div>
+        {!showAll && monthly.length > 10 && (
+          <button onClick={() => setShowAll(true)}
+            style={{ width: '100%', marginTop: 10, padding: '10px', background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', color: 'var(--text2)', fontSize: 13, cursor: 'pointer' }}>
+            Mostra-les totes ({monthly.length})
+          </button>
+        )}
       </div>
     </div>
   )
