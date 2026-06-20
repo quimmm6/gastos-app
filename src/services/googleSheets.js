@@ -1,4 +1,5 @@
 const SCOPES = 'https://www.googleapis.com/auth/spreadsheets'
+const REG_SHEET = 'Registre'
 const DISCOVERY_DOC = 'https://sheets.googleapis.com/$discovery/rest?version=v4'
 
 let gapiInited = false
@@ -58,12 +59,12 @@ export function isSignedIn() {
 export async function initSheet(spreadsheetId) {
   const res = await window.gapi.client.sheets.spreadsheets.values.get({
     spreadsheetId,
-    range: 'A1:F1',
+    range: `${REG_SHEET}!A1:F1`,
   })
   if (!res.result.values) {
     await window.gapi.client.sheets.spreadsheets.values.update({
       spreadsheetId,
-      range: 'A1:F1',
+      range: `${REG_SHEET}!A1:F1`,
       valueInputOption: 'RAW',
       resource: { values: [['fecha', 'importe', 'tipo', 'categoria', 'descripcion', 'id']] },
     })
@@ -73,7 +74,7 @@ export async function initSheet(spreadsheetId) {
 export async function getTransactions(spreadsheetId) {
   const res = await window.gapi.client.sheets.spreadsheets.values.get({
     spreadsheetId,
-    range: 'A2:F',
+    range: `${REG_SHEET}!A2:F`,
   })
   const rows = res.result.values || []
   return rows.map((r) => ({
@@ -90,7 +91,7 @@ export async function addTransaction(spreadsheetId, tx) {
   const id = Date.now().toString()
   await window.gapi.client.sheets.spreadsheets.values.append({
     spreadsheetId,
-    range: 'A:F',
+    range: `${REG_SHEET}!A:F`,
     valueInputOption: 'RAW',
     resource: {
       values: [[tx.fecha, tx.importe, tx.tipo, tx.categoria, tx.descripcion, id]],
@@ -102,14 +103,15 @@ export async function addTransaction(spreadsheetId, tx) {
 export async function deleteTransaction(spreadsheetId, id) {
   const res = await window.gapi.client.sheets.spreadsheets.values.get({
     spreadsheetId,
-    range: 'F:F',
+    range: `${REG_SHEET}!F:F`,
   })
   const rows = res.result.values || []
   const rowIndex = rows.findIndex((r) => r[0] === id)
   if (rowIndex < 1) return
 
   const meta = await window.gapi.client.sheets.spreadsheets.get({ spreadsheetId })
-  const sheetId = meta.result.sheets[0].properties.sheetId
+  const sheet = meta.result.sheets.find(s => s.properties.title === REG_SHEET)
+  const sheetId = sheet?.properties.sheetId ?? meta.result.sheets[0].properties.sheetId
 
   await window.gapi.client.sheets.spreadsheets.batchUpdate({
     spreadsheetId,
@@ -126,7 +128,7 @@ export async function deleteTransaction(spreadsheetId, id) {
 export async function updateTransaction(spreadsheetId, tx) {
   const res = await window.gapi.client.sheets.spreadsheets.values.get({
     spreadsheetId,
-    range: 'F:F',
+    range: `${REG_SHEET}!F:F`,
   })
   const rows = res.result.values || []
   const rowIndex = rows.findIndex(r => r[0] === tx.id)
@@ -134,7 +136,7 @@ export async function updateTransaction(spreadsheetId, tx) {
 
   await window.gapi.client.sheets.spreadsheets.values.update({
     spreadsheetId,
-    range: `A${rowIndex + 1}:F${rowIndex + 1}`,
+    range: `${REG_SHEET}!A${rowIndex + 1}:F${rowIndex + 1}`,
     valueInputOption: 'RAW',
     resource: { values: [[tx.fecha, tx.importe, tx.tipo, tx.categoria, tx.descripcion, tx.id]] },
   })
@@ -195,13 +197,13 @@ export async function saveCategories(spreadsheetId, cats) {
 export async function reassignCategory(spreadsheetId, oldCat, newCat) {
   const res = await window.gapi.client.sheets.spreadsheets.values.get({
     spreadsheetId,
-    range: 'A2:F',
+    range: `${REG_SHEET}!A2:F`,
   })
   const rows = res.result.values || []
   const updates = []
   rows.forEach((row, i) => {
     if (row[3] === oldCat) {
-      updates.push({ range: `D${i + 2}`, values: [[newCat]] })
+      updates.push({ range: `${REG_SHEET}!D${i + 2}`, values: [[newCat]] })
     }
   })
   if (updates.length === 0) return 0
