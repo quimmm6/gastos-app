@@ -148,7 +148,20 @@ function EditRecurrentModal({ rec, categories, spreadsheetId, onSaved, onDeleted
   const cats = form.tipo === 'gasto' ? (categories?.gasto || []) : (categories?.ingreso || [])
   const allCats = [...(categories?.gasto || []), ...(categories?.ingreso || [])]
 
-  const handleSaveClick = () => setStep('saveScope')
+  const handleSaveClick = () => {
+    const categoriaChanged = form.categoria !== rec.categoria
+    if (categoriaChanged) setStep('saveScope')
+    else handleSaveDirectly()
+  }
+  const handleSaveDirectly = async () => {
+    setSaving(true)
+    try {
+      const updated = { ...form, dia: String(form.dia), importe: parseFloat(form.importe) }
+      await updateRecurrent(spreadsheetId, updated)
+      onSaved(updated)
+    } catch (e) { console.error(e) }
+    finally { setSaving(false) }
+  }
 
   const handleSaveConfirm = async () => {
     setSaving(true)
