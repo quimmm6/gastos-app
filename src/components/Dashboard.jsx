@@ -1,6 +1,8 @@
 import { ChevronLeft, ChevronRight, RefreshCw, Eye, EyeOff } from 'lucide-react'
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef } from 'react'
 import { fmtDate, currentYearMonth, monthName, toYearMonth } from '../utils/dates'
+import { EditModal } from './TransactionList'
+import { deleteTransaction } from '../services/googleSheets'
 
 function fmt(n) {
   return new Intl.NumberFormat('ca-ES', { style: 'currency', currency: 'EUR' }).format(n)
@@ -12,11 +14,13 @@ function getAvailableMonths(transactions) {
   return [...set].sort().reverse()
 }
 
-export default function Dashboard({ transactions, loading, onRefresh, categories }) {
+export default function Dashboard({ transactions, loading, onRefresh, categories, spreadsheetId, onDeleted, onUpdated }) {
   const allMonths = getAvailableMonths(transactions)
   const [ym, setYm] = useState(currentYearMonth())
   const [hideTotal, setHideTotal] = useState(true)
   const [showAll, setShowAll] = useState(false)
+  const [editing, setEditing] = useState(null)
+  const [deleting, setDeleting] = useState(null)
   const [monthAnimKey, setMonthAnimKey] = useState(0)
   const [monthSlideDir, setMonthSlideDir] = useState('left')
 
@@ -38,6 +42,14 @@ export default function Dashboard({ transactions, loading, onRefresh, categories
 
   const catMap = {}
   ;[...(categories?.gasto || []), ...(categories?.ingreso || [])].forEach(c => { catMap[c.name] = c.icon })
+
+  const handleDelete = async (tx) => {
+    if (!confirm(`Eliminar "${tx.categoria} ${fmt(tx.importe)}"?`)) return
+    setDeleting(tx.id)
+    try { await deleteTransaction(spreadsheetId, tx.id); onDeleted(tx.id) }
+    catch { alert('Error en eliminar') }
+    finally { setDeleting(null) }
+  }
 
   const swipeStartX = useRef(null)
   const goMonth = (newYm, dir) => { setMonthSlideDir(dir); setMonthAnimKey(k => k + 1); setYm(newYm); setShowAll(false) }
@@ -108,14 +120,15 @@ export default function Dashboard({ transactions, loading, onRefresh, categories
 
         <div className="recent-list">
           {(showAll ? monthly : monthly.slice(0, 10)).map((tx) => (
-            <div key={tx.id} className="tx-item">
+            <div key={tx.id} className="tx-item" style={tx.actiu === false ? { opacity: 0.45 } : {}}
+              onClick={() => setEditing(tx)}>
               <span className="tx-icon">{catMap[tx.categoria] || '💰'}</span>
               <div className="tx-info">
-                <div className="tx-cat">{tx.categoria}</div>
+                <div className="tx-cat" style={tx.actiu === false ? { textDecoration: 'line-through' } : {}}>{tx.categoria}</div>
                 {tx.descripcion && <div className="tx-desc">{tx.descripcion}</div>}
                 <div className="tx-date">{fmtDate(tx.fecha)}</div>
               </div>
-              <span className={`tx-amount ${tx.tipo}`}>
+              <span className={`tx-amount ${tx.tipo}`} style={tx.actiu === false ? { textDecoration: 'line-through' } : {}}>
                 {tx.tipo === 'gasto' ? '−' : '+'}{fmt(tx.importe)}
               </span>
             </div>
@@ -128,6 +141,14 @@ export default function Dashboard({ transactions, loading, onRefresh, categories
           </button>
         )}
       </div>
+
+      {editing && (
+        <EditModal tx={editing} categories={categories} spreadsheetId={spreadsheetId}
+          onSaved={(u) => { onUpdated(u); setEditing(null) }}
+          onClose={() => setEditing(null)}
+          onDelete={handleDelete}
+          deletingId={deleting} />
+      )}
     </div>
   )
 }

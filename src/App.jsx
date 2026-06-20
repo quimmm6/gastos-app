@@ -237,7 +237,7 @@ export default function App() {
 
         <main className="app-main" onTouchStart={onMainTouchStart} onTouchEnd={onMainTouchEnd}>
           <div key={tabAnimKey} className={`page-slide page-slide-${tabSlideDir}`}>
-            {tab === 'inicio' && <Dashboard transactions={transactions} loading={loading} onRefresh={fetchTransactions} categories={categories} />}
+            {tab === 'inicio' && <Dashboard transactions={transactions} loading={loading} onRefresh={fetchTransactions} categories={categories} spreadsheetId={config.spreadsheetId} onDeleted={onTransactionDeleted} onUpdated={onTransactionUpdated} />}
             {tab === 'lista' && <TransactionList transactions={transactions} spreadsheetId={config.spreadsheetId} onDeleted={onTransactionDeleted} onUpdated={onTransactionUpdated} loading={loading} categories={categories} />}
             {tab === 'stats' && <Stats transactions={transactions} />}
             {tab === 'cats' && <Categories categories={categories} onSave={handleSaveCats} transactions={transactions} spreadsheetId={config.spreadsheetId} onReassigned={onCategoryReassigned} />}

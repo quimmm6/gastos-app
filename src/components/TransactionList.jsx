@@ -37,7 +37,7 @@ function ScopeSelector({ value, onChange, action }) {
   )
 }
 
-function EditModal({ tx, categories, spreadsheetId, onSaved, onClose }) {
+export function EditModal({ tx, categories, spreadsheetId, onSaved, onClose, onDelete, deletingId }) {
   const [form, setForm] = useState({ ...tx })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -96,9 +96,15 @@ function EditModal({ tx, categories, spreadsheetId, onSaved, onClose }) {
         </div>
       )}
       {error && <p style={{ color: 'var(--red)', fontSize: 13, marginBottom: 10 }}>{error}</p>}
-      <button className="btn-primary" onClick={handleSave} disabled={saving}>
+      <button className="btn-primary" onClick={handleSave} disabled={saving} style={{ marginBottom: 8 }}>
         {saving ? 'Desant…' : 'Desar canvis'}
       </button>
+      {onDelete && (
+        <button className="btn-ghost" style={{ width: '100%', color: 'var(--red)', borderColor: 'var(--red)' }}
+          onClick={() => { onClose(); onDelete(tx) }} disabled={deletingId === tx.id}>
+          Eliminar
+        </button>
+      )}
     </BottomSheet>,
     document.body
   )
