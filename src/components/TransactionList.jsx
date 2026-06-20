@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { Trash2, Pencil, X } from 'lucide-react'
+import { Trash2, Pencil, X, Search } from 'lucide-react'
 import { deleteTransaction, updateTransaction, getRecurrents, updateRecurrent, deleteRecurrent, addRecurrent } from '../services/googleSheets'
 import { fmtDate, fmtDateLong, parseImport } from '../utils/dates'
 import BottomSheet from './BottomSheet'
@@ -342,6 +342,7 @@ export default function TransactionList({ transactions, spreadsheetId, onDeleted
   const [typeFilter, setTypeFilter] = useState('tots')
   const [recFilter, setRecFilter] = useState('tots')
   const [catFilter, setCatFilter] = useState('')
+  const [search, setSearch] = useState('')
   const [deleting, setDeleting] = useState(null)
   const [editing, setEditing] = useState(null)
   const [recurrents, setRecurrents] = useState(demoRecurrents || [])
@@ -364,7 +365,14 @@ export default function TransactionList({ transactions, spreadsheetId, onDeleted
   const recFiltered = typeFiltered.filter(t =>
     recFilter === 'tots' || (recFilter === 'ordinaris' && !t.id.startsWith('rec-')) || (recFilter === 'recurrents' && t.id.startsWith('rec-'))
   )
-  const filtered = catFilter ? recFiltered.filter(t => t.categoria === catFilter) : recFiltered
+  const searchQ = search.trim().toLowerCase()
+  const catFiltered = catFilter ? recFiltered.filter(t => t.categoria === catFilter) : recFiltered
+  const filtered = searchQ
+    ? catFiltered.filter(t =>
+        t.categoria.toLowerCase().includes(searchQ) ||
+        (t.descripcion || '').toLowerCase().includes(searchQ)
+      )
+    : catFiltered
   const availableCats = [...new Set(typeFiltered.map(t => t.categoria))].sort((a, b) => a.localeCompare(b, 'ca'))
   const catActive = !!catFilter
 
@@ -400,6 +408,27 @@ export default function TransactionList({ transactions, spreadsheetId, onDeleted
 
   return (
     <div>
+      <div style={{ position: 'relative', marginBottom: 10 }}>
+        <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text2)', pointerEvents: 'none' }} />
+        <input
+          type="search"
+          placeholder="Cerca per categoria o descripció…"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          style={{
+            width: '100%', boxSizing: 'border-box',
+            padding: '10px 12px 10px 36px',
+            background: 'var(--bg3)', border: '1px solid var(--border)',
+            borderRadius: 'var(--radius-sm)', color: 'var(--text1)', fontSize: 14,
+          }}
+        />
+        {search && (
+          <button onClick={() => setSearch('')}
+            style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text2)', cursor: 'pointer', padding: 2 }}>
+            <X size={14} />
+          </button>
+        )}
+      </div>
       <div className="filter-grid">
         {/* Fila 1: tipus */}
         {[['tots', 'Tots'], ['despesa', 'Despeses'], ['ingrés', 'Ingressos']].map(([v, l]) => (
