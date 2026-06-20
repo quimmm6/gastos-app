@@ -6,15 +6,15 @@ function cssVar(name) {
 }
 import { monthName } from '../utils/dates'
 
-const COLORS_DARK   = ['#818cf8', '#34d399', '#fbbf24', '#f87171', '#22d3ee', '#c084fc', '#fb923c', '#a3e635']
-const COLORS_PASTEL = ['#a5b4fc', '#6ee7b7', '#fde68a', '#fca5a5', '#67e8f9', '#d8b4fe', '#fed7aa', '#d9f99d']
+const COLORS_DARK  = ['#818cf8', '#34d399', '#fbbf24', '#f87171', '#22d3ee', '#c084fc', '#fb923c', '#a3e635']
+const COLORS_LIGHT = ['#6366f1', '#059669', '#d97706', '#dc2626', '#0891b2', '#9333ea', '#ea580c', '#65a30d']
 
 function isLight() { return document.documentElement.getAttribute('data-theme') === 'light' }
-function getColors() { return isLight() ? COLORS_PASTEL : COLORS_DARK }
+function getColors() { return isLight() ? COLORS_LIGHT : COLORS_DARK }
 function barColor(name) {
-  if (name === 'ingressos') return isLight() ? '#6ee7b7' : '#22c55e'
-  if (name === 'gastos')    return isLight() ? '#fca5a5' : '#ef4444'
-  return isLight() ? '#a5b4fc' : '#6366f1'
+  if (name === 'ingressos') return isLight() ? '#059669' : '#22c55e'
+  if (name === 'gastos')    return isLight() ? '#dc2626' : '#ef4444'
+  return isLight() ? '#6366f1' : '#818cf8'
 }
 
 function fmt(n) {

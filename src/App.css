@@ -21,20 +21,20 @@
 }
 
 [data-theme="light"] {
-  --bg: #dddaf5;
-  --bg2: #eceaf9;
-  --bg3: #ccc9ec;
-  --border: #c2bfe6;
-  --text1: #16162a;
-  --text2: #5a5a9a;
-  --accent: #4f51c4;
-  --accent-light: #4f51c4;
-  --green: #16824a;
-  --red: #b52c2c;
-  --chart-grid: #d0d0e6;
-  --chart-tick: #8888b8;
-  --tooltip-bg: #f0f0fa;
-  --tooltip-border: #c8c8e8;
+  --bg: #ebe8f8;
+  --bg2: #f7f5ff;
+  --bg3: #ddd9f4;
+  --border: #cbc6ee;
+  --text1: #12112a;
+  --text2: #52509a;
+  --accent: #5254c8;
+  --accent-light: #5254c8;
+  --green: #16a34a;
+  --red: #dc2626;
+  --chart-grid: #d4d0ee;
+  --chart-tick: #7070a8;
+  --tooltip-bg: #f7f5ff;
+  --tooltip-border: #cbc6ee;
 }
 
 
@@ -122,8 +122,11 @@ html, body, #root {
   height: 100dvh;
   display: flex; flex-direction: column; align-items: center;
   padding-top: 28vh;
-  background: radial-gradient(ellipse at 35% 30%, #1e1e35 0%, var(--bg) 70%);
+  background: var(--bg);
   overflow: hidden;
+}
+[data-theme="dark"] .splash-screen {
+  background: radial-gradient(ellipse at 35% 30%, #1e1e35 0%, var(--bg) 70%);
 }
 .splash-content {
   display: flex; flex-direction: column; align-items: center;
