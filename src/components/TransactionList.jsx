@@ -94,26 +94,43 @@ function EditModal({ tx, categories, spreadsheetId, onSaved, onClose }) {
   )
 }
 
+const HIGH_DAYS = ['29', '30', '31']
+
 function DiaInput({ value, onChange }) {
-  const special = [['P', 'Primer dia'], ['U', 'Últim dia']]
-  const isSpecial = v => v === 'P' || v === 'U'
+  const isSpecial = value === 'P' || value === 'U'
+  const numVal = isSpecial ? '1' : value
+  const showWarning = HIGH_DAYS.includes(value)
+
   return (
-    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-      {!isSpecial(value) && (
-        <input type="number" min="1" max="31" value={value}
-          onChange={e => { const n = Math.min(31, Math.max(1, parseInt(e.target.value) || 1)); onChange(String(n)) }}
-          style={{ width: 70 }} className="form-input" />
-      )}
-      {special.map(([v, l]) => (
-        <button key={v} type="button"
-          onClick={() => onChange(value === v ? '1' : v)}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <select value={numVal} disabled={isSpecial}
+          onChange={e => onChange(e.target.value)}
           style={{
-            padding: '8px 12px', borderRadius: 8, fontSize: 12, cursor: 'pointer',
-            background: value === v ? 'var(--accent)' : 'var(--bg3)',
-            border: `1px solid ${value === v ? 'var(--accent)' : 'var(--border)'}`,
-            color: value === v ? '#fff' : 'var(--text2)',
-          }}>{l}</button>
-      ))}
+            flex: 1, background: isSpecial ? 'var(--bg3)' : 'var(--bg3)',
+            border: '1px solid var(--border)', color: isSpecial ? 'var(--text2)' : 'var(--text1)',
+            borderRadius: 8, padding: '10px 12px', fontSize: 15, opacity: isSpecial ? 0.4 : 1,
+            WebkitAppearance: 'none', appearance: 'none',
+          }}>
+          {Array.from({ length: 31 }, (_, i) => String(i + 1)).map(d => (
+            <option key={d} value={d}>Dia {d}</option>
+          ))}
+        </select>
+        {[['P', 'Primer'], ['U', 'Últim']].map(([v, l]) => (
+          <button key={v} type="button" onClick={() => onChange(value === v ? numVal : v)}
+            style={{
+              padding: '10px 12px', borderRadius: 8, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap',
+              background: value === v ? 'var(--accent)' : 'var(--bg3)',
+              border: `1px solid ${value === v ? 'var(--accent)' : 'var(--border)'}`,
+              color: value === v ? '#fff' : 'var(--text2)',
+            }}>{l}</button>
+        ))}
+      </div>
+      {showWarning && (
+        <p style={{ fontSize: 12, color: 'var(--text2)', margin: 0 }}>
+          ⚠️ Alguns mesos no tenen el dia {value}. Considera usar "Últim dia".
+        </p>
+      )}
     </div>
   )
 }
@@ -376,9 +393,13 @@ export default function TransactionList({ transactions, spreadsheetId, onDeleted
           <button className="btn-primary" style={{ marginBottom: 12 }} onClick={() => setShowAddRec(true)}>
             + Afegir recurrent
           </button>
-          {recurrents.length === 0 && !loading && <p className="empty">No hi ha despeses recurrents.</p>}
+          {recurrents.length === 0 && !loading && (
+            <p className="empty">No hi ha {typeFilter === 'ingrés' ? 'ingressos' : typeFilter === 'despesa' ? 'despeses' : 'entrades'} recurrents.</p>
+          )}
           <div className="recent-list">
-            {recurrents.map((rec) => (
+            {recurrents.filter(rec =>
+              typeFilter === 'tots' || (typeFilter === 'despesa' && rec.tipo === 'gasto') || (typeFilter === 'ingrés' && rec.tipo === 'ingreso')
+            ).map((rec) => (
               <div key={rec.rowIndex} className="tx-item">
                 <span className="tx-icon">{catMap[rec.categoria] || '🔁'}</span>
                 <div className="tx-info">

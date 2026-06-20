@@ -120,9 +120,9 @@ export default function Stats({ transactions }) {
                   contentStyle={{ background: cssVar('--tooltip-bg'), border: `1px solid ${cssVar('--tooltip-border')}`, borderRadius: 8, fontSize: 12, color: cssVar('--text1') }}
                   formatter={(v, name) => [fmt(v), name === 'gastos' ? 'Despeses' : name === 'ingressos' ? 'Ingressos' : 'Balanç']}
                 />
-                <Bar dataKey="ingressos" fill="#22c55e" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="gastos" fill="#ef4444" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="balanc" fill="#6366f1" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="ingressos" fill="#22c55e" radius={[4, 4, 0, 0]} isAnimationActive={false} />
+                <Bar dataKey="gastos" fill="#ef4444" radius={[4, 4, 0, 0]} isAnimationActive={false} />
+                <Bar dataKey="balanc" fill="#6366f1" radius={[4, 4, 0, 0]} isAnimationActive={false} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -142,7 +142,8 @@ export default function Stats({ transactions }) {
             <ResponsiveContainer>
               <PieChart>
                 <Pie data={catData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80}
-                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false} fontSize={10}>
+                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false} fontSize={10}
+                  isAnimationActive={false}>
                   {catData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                 </Pie>
                 <Tooltip formatter={(v) => fmt(v)} contentStyle={{ background: cssVar('--tooltip-bg'), border: `1px solid ${cssVar('--tooltip-border')}`, borderRadius: 8, fontSize: 12, color: cssVar('--text1') }} />
