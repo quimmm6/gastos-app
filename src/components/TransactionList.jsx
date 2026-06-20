@@ -11,6 +11,32 @@ function fmt(n) {
 
 function today() { return new Date().toISOString().split('T')[0] }
 
+const SCOPE_OPTS = [
+  ['future', 'No, només a partir d\'ara'],
+  ['past', 'Sí, modificar/eliminar registres anteriors'],
+]
+
+function ScopeSelector({ value, onChange, action }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
+      {SCOPE_OPTS.map(([v, l]) => (
+        <button key={v} type="button"
+          onClick={() => onChange(v)}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 12,
+            padding: '12px 14px', borderRadius: 10, cursor: 'pointer', textAlign: 'left',
+            background: value === v ? 'var(--accent)' : 'var(--bg3)',
+            border: `2px solid ${value === v ? 'var(--accent)' : 'var(--border)'}`,
+            color: value === v ? '#fff' : 'var(--text1)', fontSize: 14, fontWeight: value === v ? 600 : 400,
+          }}>
+          <span style={{ fontSize: 18 }}>{value === v ? '●' : '○'}</span>
+          {l}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 function EditModal({ tx, categories, spreadsheetId, onSaved, onClose }) {
   const [form, setForm] = useState({ ...tx })
   const [saving, setSaving] = useState(false)
@@ -68,31 +94,32 @@ function EditModal({ tx, categories, spreadsheetId, onSaved, onClose }) {
   )
 }
 
-function EditRecurrentModal({ rec, categories, spreadsheetId, onSaved, onDeleted, onClose, transactions, onDeletePast }) {
+function EditRecurrentModal({ rec, categories, spreadsheetId, onSaved, onDeleted, onClose, onUpdatePast, onDeletePast }) {
   const [form, setForm] = useState({ ...rec })
   const [saving, setSaving] = useState(false)
-  const [confirmDelete, setConfirmDelete] = useState(false)
-  const [deleteScope, setDeleteScope] = useState('all')
+  const [step, setStep] = useState('edit') // 'edit' | 'saveScope' | 'deleteScope'
+  const [saveScope, setSaveScope] = useState('future')
+  const [deleteScope, setDeleteScope] = useState('future')
   const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }))
   const allCats = [...(categories?.gasto || []), ...(categories?.ingreso || [])]
 
-  const handleSave = async () => {
+  const handleSaveClick = () => setStep('saveScope')
+
+  const handleSaveConfirm = async () => {
     setSaving(true)
     try {
       const updated = { ...form, dia: parseInt(form.dia), importe: parseFloat(form.importe) }
       await updateRecurrent(spreadsheetId, updated)
+      if (saveScope === 'past') await onUpdatePast(rec, updated)
       onSaved(updated)
     } catch (e) { console.error(e) }
     finally { setSaving(false) }
   }
 
-  const handleDelete = async () => {
+  const handleDeleteConfirm = async () => {
     setSaving(true)
     try {
-      if (deleteScope === 'past') {
-        // Delete past registre entries for this recurrent
-        await onDeletePast(rec)
-      }
+      if (deleteScope === 'past') await onDeletePast(rec)
       await deleteRecurrent(spreadsheetId, rec.rowIndex)
       onDeleted(rec.rowIndex)
     } catch (e) { console.error(e) }
@@ -102,29 +129,13 @@ function EditRecurrentModal({ rec, categories, spreadsheetId, onSaved, onDeleted
   return createPortal(
     <BottomSheet onClose={onClose}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
-        <h2 style={{ fontSize: 17, fontWeight: 700 }}>Editar recurrent</h2>
-        <button className="btn-icon" onClick={onClose}><X size={20} /></button>
+        <h2 style={{ fontSize: 17, fontWeight: 700 }}>
+          {step === 'edit' ? 'Editar recurrent' : step === 'saveScope' ? 'Desar canvis' : 'Eliminar recurrent'}
+        </h2>
+        <button className="btn-icon" onClick={step === 'edit' ? onClose : () => setStep('edit')}><X size={20} /></button>
       </div>
 
-      {confirmDelete ? (
-        <div>
-          <p style={{ fontSize: 14, marginBottom: 16, color: 'var(--text1)' }}>Vols eliminar també les entrades passades al Registre?</p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
-            {[['future', 'No, només deixar d\'aplicar-se'], ['past', 'Sí, eliminar registres anteriors']].map(([v, l]) => (
-              <label key={v} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, cursor: 'pointer' }}>
-                <input type="radio" value={v} checked={deleteScope === v} onChange={() => setDeleteScope(v)} />
-                {l}
-              </label>
-            ))}
-          </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button className="btn-ghost" style={{ flex: 1 }} onClick={() => setConfirmDelete(false)}>Cancel·lar</button>
-            <button className="btn-primary" style={{ flex: 1, background: 'var(--red)' }} onClick={handleDelete} disabled={saving}>
-              {saving ? 'Eliminant…' : 'Eliminar'}
-            </button>
-          </div>
-        </div>
-      ) : (
+      {step === 'edit' && (
         <>
           <div className="form-group"><label>Dia del mes</label>
             <input type="number" min="1" max="31" value={form.dia} onChange={set('dia')} />
@@ -150,13 +161,35 @@ function EditRecurrentModal({ rec, categories, spreadsheetId, onSaved, onDeleted
               <button type="button" className={`tipo-btn ${!form.activa ? 'active gasto' : ''}`} onClick={() => setForm(f => ({ ...f, activa: false }))}>No</button>
             </div>
           </div>
-          <button className="btn-primary" onClick={handleSave} disabled={saving} style={{ marginBottom: 8 }}>
-            {saving ? 'Desant…' : 'Desar canvis'}
-          </button>
+          <button className="btn-primary" onClick={handleSaveClick} style={{ marginBottom: 8 }}>Desar canvis</button>
           <button className="btn-ghost" style={{ width: '100%', color: 'var(--red)', borderColor: 'var(--red)' }}
-            onClick={() => setConfirmDelete(true)}>
-            Eliminar recurrent
-          </button>
+            onClick={() => setStep('deleteScope')}>Eliminar recurrent</button>
+        </>
+      )}
+
+      {step === 'saveScope' && (
+        <>
+          <p style={{ fontSize: 14, color: 'var(--text2)', marginBottom: 16 }}>Els canvis d'import o categoria, vols aplicar-los als registres anteriors generats per aquesta recurrent?</p>
+          <ScopeSelector value={saveScope} onChange={setSaveScope} />
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="btn-ghost" style={{ flex: 1 }} onClick={() => setStep('edit')}>Enrere</button>
+            <button className="btn-primary" style={{ flex: 1 }} onClick={handleSaveConfirm} disabled={saving}>
+              {saving ? 'Desant…' : 'Confirmar'}
+            </button>
+          </div>
+        </>
+      )}
+
+      {step === 'deleteScope' && (
+        <>
+          <p style={{ fontSize: 14, color: 'var(--text2)', marginBottom: 16 }}>Vols eliminar també els registres anteriors generats per aquesta recurrent?</p>
+          <ScopeSelector value={deleteScope} onChange={setDeleteScope} />
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="btn-ghost" style={{ flex: 1 }} onClick={() => setStep('edit')}>Enrere</button>
+            <button className="btn-primary" style={{ flex: 1, background: 'var(--red)' }} onClick={handleDeleteConfirm} disabled={saving}>
+              {saving ? 'Eliminant…' : 'Eliminar'}
+            </button>
+          </div>
         </>
       )}
     </BottomSheet>,
@@ -175,8 +208,7 @@ function AddRecurrentModal({ categories, spreadsheetId, onAdded, onClose }) {
     if (!form.importe || !form.categoria) { setError('Omple import i categoria'); return }
     setSaving(true); setError('')
     try {
-      const rec = { ...form, dia: parseInt(form.dia), importe: parseFloat(form.importe), activa: true }
-      await addRecurrent(spreadsheetId, rec)
+      await addRecurrent(spreadsheetId, { ...form, dia: parseInt(form.dia), importe: parseFloat(form.importe), activa: true })
       onAdded()
     } catch (e) { setError('Error en guardar'); console.error(e) }
     finally { setSaving(false) }
@@ -216,7 +248,8 @@ function AddRecurrentModal({ categories, spreadsheetId, onAdded, onClose }) {
 }
 
 export default function TransactionList({ transactions, spreadsheetId, onDeleted, onUpdated, loading, categories }) {
-  const [filter, setFilter] = useState('tots')
+  const [typeFilter, setTypeFilter] = useState('tots')
+  const [recFilter, setRecFilter] = useState('tots')
   const [catFilter, setCatFilter] = useState('')
   const [deleting, setDeleting] = useState(null)
   const [editing, setEditing] = useState(null)
@@ -224,33 +257,33 @@ export default function TransactionList({ transactions, spreadsheetId, onDeleted
   const [editingRec, setEditingRec] = useState(null)
   const [showAddRec, setShowAddRec] = useState(false)
 
+  const isRecView = recFilter === 'recurrents'
+
   useEffect(() => {
-    if (filter === 'recurrents') {
-      getRecurrents(spreadsheetId).then(setRecurrents)
-    }
-  }, [filter, spreadsheetId])
+    if (isRecView) getRecurrents(spreadsheetId).then(setRecurrents)
+  }, [isRecView, spreadsheetId])
 
   const catMap = {}
   ;[...(categories?.gasto || []), ...(categories?.ingreso || [])].forEach(c => { catMap[c.name] = c.icon })
 
   const typeFiltered = transactions.filter(t =>
-    filter === 'tots' || (filter === 'despesa' && t.tipo === 'gasto') || (filter === 'ingrés' && t.tipo === 'ingreso')
+    typeFilter === 'tots' || (typeFilter === 'despesa' && t.tipo === 'gasto') || (typeFilter === 'ingrés' && t.tipo === 'ingreso')
   )
-  const filtered = catFilter ? typeFiltered.filter(t => t.categoria === catFilter) : typeFiltered
+  const recFiltered = typeFiltered.filter(t =>
+    recFilter === 'tots' || (recFilter === 'ordinaris' && !t.id.startsWith('rec-')) || (recFilter === 'recurrents' && t.id.startsWith('rec-'))
+  )
+  const filtered = catFilter ? recFiltered.filter(t => t.categoria === catFilter) : recFiltered
   const availableCats = [...new Set(typeFiltered.map(t => t.categoria))].sort((a, b) => a.localeCompare(b, 'ca'))
 
   const handleDelete = async (tx) => {
     if (!confirm(`Eliminar "${tx.categoria} ${fmt(tx.importe)}"?`)) return
     setDeleting(tx.id)
-    try {
-      await deleteTransaction(spreadsheetId, tx.id)
-      onDeleted(tx.id)
-    } catch { alert('Error en eliminar') }
+    try { await deleteTransaction(spreadsheetId, tx.id); onDeleted(tx.id) }
+    catch { alert('Error en eliminar') }
     finally { setDeleting(null) }
   }
 
   const handleDeletePast = async (rec) => {
-    // Delete all Registre entries matching this recurrent's categoria+descripcion
     const toDelete = transactions.filter(t =>
       t.categoria === rec.categoria && t.descripcion === rec.descripcion && t.id.startsWith('rec-')
     )
@@ -259,30 +292,45 @@ export default function TransactionList({ transactions, spreadsheetId, onDeleted
     }
   }
 
-  const isRecurrentView = filter === 'recurrents'
+  const handleUpdatePast = async (oldRec, newRec) => {
+    const toUpdate = transactions.filter(t =>
+      t.categoria === oldRec.categoria && t.descripcion === oldRec.descripcion && t.id.startsWith('rec-')
+    )
+    for (const tx of toUpdate) {
+      try {
+        const updated = { ...tx, categoria: newRec.categoria, importe: newRec.importe, descripcion: newRec.descripcion }
+        await updateTransaction(spreadsheetId, updated)
+        onUpdated(updated)
+      } catch {}
+    }
+  }
 
   return (
     <div>
-      <div className="filter-bar">
-        {[['tots', 'Tots'], ['despesa', 'Despeses'], ['ingrés', 'Ingressos'], ['recurrents', '🔁']].map(([v, l]) => (
-          <button key={v} className={`filter-chip ${filter === v ? 'active' : ''}`}
-            onClick={() => { setFilter(v); setCatFilter('') }}>{l}</button>
+      {/* Fila 1: tipus */}
+      <div className="filter-bar" style={{ marginBottom: 6 }}>
+        {[['tots', 'Tots'], ['despesa', 'Despeses'], ['ingrés', 'Ingressos']].map(([v, l]) => (
+          <button key={v} className={`filter-chip ${typeFilter === v ? 'active' : ''}`}
+            onClick={() => { setTypeFilter(v); setCatFilter('') }}>{l}</button>
         ))}
-        {!isRecurrentView && (
-          <select className={`filter-select ${catFilter ? 'active-filter' : ''}`} value={catFilter}
-            onChange={e => setCatFilter(e.target.value)} style={{ marginLeft: 'auto', flexShrink: 1 }}>
-            <option value="">Categoria ▾</option>
-            {availableCats.map(c => <option key={c} value={c}>{catMap[c] || ''} {c}</option>)}
-          </select>
-        )}
-        <span style={{ fontSize: 12, color: 'var(--text2)', whiteSpace: 'nowrap' }}>
-          {isRecurrentView ? recurrents.length : filtered.length}
-        </span>
+        <select className={`filter-select ${catFilter ? 'active-filter' : ''}`} value={catFilter}
+          onChange={e => setCatFilter(e.target.value)} style={{ marginLeft: 'auto', flexShrink: 1 }}>
+          <option value="">Categories ▾</option>
+          {availableCats.map(c => <option key={c} value={c}>{catMap[c] || ''} {c}</option>)}
+        </select>
+      </div>
+
+      {/* Fila 2: recurrència */}
+      <div className="filter-bar" style={{ marginBottom: 12, paddingTop: 0 }}>
+        {[['tots', 'Tots'], ['ordinaris', 'Ordinaris'], ['recurrents', 'Recurrents']].map(([v, l]) => (
+          <button key={v} className={`filter-chip ${recFilter === v ? 'active' : ''}`}
+            onClick={() => setRecFilter(v)}>{l}</button>
+        ))}
       </div>
 
       {loading && <p className="empty">Carregant…</p>}
 
-      {isRecurrentView ? (
+      {isRecView ? (
         <div>
           <button className="btn-primary" style={{ marginBottom: 12 }} onClick={() => setShowAddRec(true)}>
             + Afegir recurrent
@@ -295,7 +343,7 @@ export default function TransactionList({ transactions, spreadsheetId, onDeleted
                 <div className="tx-info">
                   <div className="tx-cat">{rec.categoria}</div>
                   {rec.descripcion && <div className="tx-desc">{rec.descripcion}</div>}
-                  <div className="tx-date">Dia {rec.dia} · des de {rec.inici} · {rec.activa ? '✅ activa' : '⏸ inactiva'}</div>
+                  <div className="tx-date">Dia {rec.dia} · des de {rec.inici} · {rec.activa ? '✅' : '⏸'}</div>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
                   <span className="tx-amount gasto">−{fmt(rec.importe)}</span>
@@ -343,15 +391,16 @@ export default function TransactionList({ transactions, spreadsheetId, onDeleted
 
       {editing && (
         <EditModal tx={editing} categories={categories} spreadsheetId={spreadsheetId}
-          onSaved={(updated) => { onUpdated(updated); setEditing(null) }}
+          onSaved={(u) => { onUpdated(u); setEditing(null) }}
           onClose={() => setEditing(null)} />
       )}
 
       {editingRec && (
         <EditRecurrentModal rec={editingRec} categories={categories} spreadsheetId={spreadsheetId}
           transactions={transactions}
-          onSaved={(updated) => { setRecurrents(r => r.map(x => x.rowIndex === updated.rowIndex ? updated : x)); setEditingRec(null) }}
-          onDeleted={(rowIndex) => { setRecurrents(r => r.filter(x => x.rowIndex !== rowIndex)); setEditingRec(null) }}
+          onSaved={(u) => { setRecurrents(r => r.map(x => x.rowIndex === u.rowIndex ? u : x)); setEditingRec(null) }}
+          onDeleted={(ri) => { setRecurrents(r => r.filter(x => x.rowIndex !== ri)); setEditingRec(null) }}
+          onUpdatePast={handleUpdatePast}
           onDeletePast={handleDeletePast}
           onClose={() => setEditingRec(null)} />
       )}
