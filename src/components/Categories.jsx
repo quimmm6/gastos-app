@@ -170,8 +170,8 @@ export default function Categories({ categories, onSave, transactions, spreadshe
               <>
                 <span style={{ fontSize: 22 }}>{cat.icon}</span>
                 <span style={{ flex: 1, fontSize: 14 }}>{cat.name}</span>
-                <button onClick={() => startEdit(i)} style={{ background: 'none', border: 'none', color: 'var(--text2)', cursor: 'pointer', padding: 4 }}><Pencil size={14} /></button>
-                <button onClick={() => requestRemove(i)} style={{ background: 'none', border: 'none', color: 'var(--red)', cursor: 'pointer', padding: 4 }}><Trash2 size={14} /></button>
+                <button onClick={() => startEdit(i)} style={{ background: 'none', border: 'none', color: 'var(--text2)', cursor: 'pointer', padding: '4px 8px' }}><Pencil size={18} /></button>
+                <button onClick={() => requestRemove(i)} style={{ background: 'none', border: 'none', color: 'var(--text2)', cursor: 'pointer', padding: '4px 8px' }}><Trash2 size={18} /></button>
               </>
             )}
           </div>
