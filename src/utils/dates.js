@@ -22,6 +22,11 @@ export function toYearMonth(dateStr) {
   return dateStr?.slice(0, 7) || ''
 }
 
+// Parse import accepting both "12,50" and "12.50"
+export function parseImport(val) {
+  return parseFloat(String(val).replace(',', '.')) || 0
+}
+
 // "2026-06" or "2026-06-20" → "20 juny 2026" (or "juny 2026" if no day)
 export function fmtDateLong(dateStr) {
   if (!dateStr) return ''

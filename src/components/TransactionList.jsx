@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { Trash2, Pencil, X } from 'lucide-react'
 import { deleteTransaction, updateTransaction, getRecurrents, updateRecurrent, deleteRecurrent, addRecurrent } from '../services/googleSheets'
-import { fmtDate, fmtDateLong } from '../utils/dates'
+import { fmtDate, fmtDateLong, parseImport } from '../utils/dates'
 import BottomSheet from './BottomSheet'
 
 function fmt(n) {
@@ -48,7 +48,7 @@ export function EditModal({ tx, categories, spreadsheetId, onSaved, onClose, onD
     if (!form.importe || !form.categoria) { setError('Omple import i categoria'); return }
     setSaving(true); setError('')
     try {
-      const updated = { ...form, importe: parseFloat(form.importe) }
+      const updated = { ...form, importe: parseImport(form.importe) }
       await updateTransaction(spreadsheetId, updated)
       onSaved(updated)
     } catch (e) { setError('Error en guardar'); console.error(e) }
@@ -172,7 +172,7 @@ function EditRecurrentModal({ rec, categories, spreadsheetId, onSaved, onDeleted
   const handleSaveDirectly = async () => {
     setSaving(true)
     try {
-      const updated = { ...form, dia: String(form.dia), importe: parseFloat(form.importe) }
+      const updated = { ...form, dia: String(form.dia), importe: parseImport(form.importe) }
       await updateRecurrent(spreadsheetId, updated)
       onSaved(updated)
     } catch (e) { console.error(e) }
@@ -182,7 +182,7 @@ function EditRecurrentModal({ rec, categories, spreadsheetId, onSaved, onDeleted
   const handleSaveConfirm = async () => {
     setSaving(true)
     try {
-      const updated = { ...form, dia: parseInt(form.dia), importe: parseFloat(form.importe) }
+      const updated = { ...form, dia: parseInt(form.dia), importe: parseImport(form.importe) }
       await updateRecurrent(spreadsheetId, updated)
       if (saveScope === 'past') await onUpdatePast(rec, updated)
       onSaved(updated)
@@ -291,7 +291,7 @@ function AddRecurrentModal({ categories, spreadsheetId, onAdded, onClose }) {
     if (!form.importe || !form.categoria) { setError('Omple import i categoria'); return }
     setSaving(true); setError('')
     try {
-      await addRecurrent(spreadsheetId, { ...form, importe: parseFloat(form.importe), activa: true })
+      await addRecurrent(spreadsheetId, { ...form, importe: parseImport(form.importe), activa: true })
       onAdded()
     } catch (e) { setError('Error en guardar'); console.error(e) }
     finally { setSaving(false) }

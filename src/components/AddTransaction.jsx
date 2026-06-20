@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { X } from 'lucide-react'
 import { addTransaction } from '../services/googleSheets'
+import { parseImport } from '../utils/dates'
 
 function today() {
   return new Date().toISOString().split('T')[0]
@@ -20,7 +21,7 @@ export default function AddTransaction({ spreadsheetId, onAdded, categories, onC
     if (!form.importe || !form.categoria) { setError('Omple import i categoria'); return }
     setSaving(true); setError('')
     try {
-      const tx = await addTransaction(spreadsheetId, { ...form, tipo, importe: parseFloat(form.importe) })
+      const tx = await addTransaction(spreadsheetId, { ...form, tipo, importe: parseImport(form.importe) })
       onAdded(tx)
       setForm({ fecha: today(), importe: '', categoria: '', descripcion: '' })
     } catch (err) {
