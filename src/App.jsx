@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef, startTransition } from 'react
 import { createPortal } from 'react-dom'
 import { Home, List, BarChart2, Tag, Plus, LogOut, Moon, Sun } from 'lucide-react'
 import { loadGoogleAPIs, signIn, signOut, isSignedIn, initSheet, getTransactions, getCategories, saveCategories, applyRecurrents, addRecurrent } from './services/googleSheets'
+import { DEMO_TRANSACTIONS, DEMO_CATEGORIES } from './demoData'
 import Dashboard from './components/Dashboard'
 import AddTransaction from './components/AddTransaction'
 import TransactionList from './components/TransactionList'
@@ -99,6 +100,7 @@ export default function App() {
   const [tabSlideDir, setTabSlideDir] = useState('left')
   const [showAdd, setShowAdd] = useState(false)
   const [categories, setCategories] = useState(loadCats)
+  const [demoMode, setDemoMode] = useState(false)
   const [darkMode, setDarkMode] = useState(() => {
     const saved = localStorage.getItem('gastos_theme')
     return saved !== null ? saved === 'dark' : true
@@ -186,12 +188,22 @@ export default function App() {
     if (authState === 'tryAuto') setAuthState('ready')
   }, [authState])
 
+  const handleDemo = () => {
+    setDemoMode(true)
+    setTransactions([...DEMO_TRANSACTIONS].reverse())
+    setCategories(DEMO_CATEGORIES)
+    setAuthState('authed')
+  }
+
   const handleSignIn = async () => {
     try { await signIn(); setAuthState('authed'); await fetchTransactions() }
     catch (e) { console.error(e) }
   }
 
-  const handleSignOut = () => { signOut(); setAuthState('ready'); setTransactions([]) }
+  const handleSignOut = () => {
+    if (demoMode) { setDemoMode(false); setAuthState('ready'); setTransactions([]); return }
+    signOut(); setAuthState('ready'); setTransactions([])
+  }
   const handleSaveConfig = (cfg) => { localStorage.setItem('gastos_config', JSON.stringify(cfg)); setConfig(cfg) }
   const handleSaveCats = (cats) => {
     setCategories(cats)
@@ -226,6 +238,7 @@ export default function App() {
           <button style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'none', border: 'none', color: 'var(--text1)', cursor: 'pointer', padding: 0 }} onClick={() => setTab('inicio')}>
             <Logo size={42} />
             <span className="header-title" style={{ fontSize: 26, letterSpacing: '-0.5px' }}>FinQuim</span>
+            {demoMode && <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)', border: '1px solid var(--accent)', borderRadius: 6, padding: '2px 6px', letterSpacing: '.05em' }}>DEMO</span>}
           </button>
           <div style={{ display: 'flex', gap: 4 }}>
             <button className="btn-icon" onClick={toggleTheme} title="Canviar tema">
@@ -237,16 +250,16 @@ export default function App() {
 
         <main className="app-main" onTouchStart={onMainTouchStart} onTouchEnd={onMainTouchEnd}>
           <div key={tabAnimKey} className={`page-slide page-slide-${tabSlideDir}`}>
-            {tab === 'inicio' && <Dashboard transactions={transactions} loading={loading} onRefresh={fetchTransactions} categories={categories} spreadsheetId={config.spreadsheetId} onDeleted={onTransactionDeleted} onUpdated={onTransactionUpdated} />}
-            {tab === 'lista' && <TransactionList transactions={transactions} spreadsheetId={config.spreadsheetId} onDeleted={onTransactionDeleted} onUpdated={onTransactionUpdated} loading={loading} categories={categories} />}
+            {tab === 'inicio' && <Dashboard transactions={transactions} loading={loading} onRefresh={demoMode ? () => {} : fetchTransactions} categories={categories} spreadsheetId={config?.spreadsheetId} onDeleted={demoMode ? () => {} : onTransactionDeleted} onUpdated={demoMode ? () => {} : onTransactionUpdated} readOnly={demoMode} />}
+            {tab === 'lista' && <TransactionList transactions={transactions} spreadsheetId={config?.spreadsheetId} onDeleted={demoMode ? () => {} : onTransactionDeleted} onUpdated={demoMode ? () => {} : onTransactionUpdated} loading={loading} categories={categories} readOnly={demoMode} />}
             {tab === 'stats' && <Stats transactions={transactions} />}
-            {tab === 'cats' && <Categories categories={categories} onSave={handleSaveCats} transactions={transactions} spreadsheetId={config.spreadsheetId} onReassigned={onCategoryReassigned} />}
+            {tab === 'cats' && <Categories categories={categories} onSave={demoMode ? () => {} : handleSaveCats} transactions={transactions} spreadsheetId={config?.spreadsheetId} onReassigned={demoMode ? () => {} : onCategoryReassigned} readOnly={demoMode} />}
           </div>
         </main>
 
-        <button className="fab" onClick={() => setShowAdd(true)} aria-label="Afegir transacció">
+        {!demoMode && <button className="fab" onClick={() => setShowAdd(true)} aria-label="Afegir transacció">
           <Plus size={26} strokeWidth={2.5} />
-        </button>
+        </button>}
 
         {showAdd && createPortal(
           <BottomSheet onClose={() => setShowAdd(false)}>
@@ -278,6 +291,10 @@ export default function App() {
   // Splash + login screen
   return (
     <div className="splash-screen">
+      <button onClick={handleDemo}
+        style={{ position: 'absolute', top: 16, right: 16, background: 'none', border: '1px solid var(--border)', borderRadius: 20, color: 'var(--text2)', padding: '6px 14px', fontSize: 13, cursor: 'pointer' }}>
+        Demo
+      </button>
       <div className={`splash-content ${authState === 'ready' ? 'splash-ready' : ''}`}>
         <div className="splash-logo">
           <SplashLogo size={120} />

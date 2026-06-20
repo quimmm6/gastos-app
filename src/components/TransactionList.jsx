@@ -338,7 +338,7 @@ function AddRecurrentModal({ categories, spreadsheetId, onAdded, onClose }) {
   )
 }
 
-export default function TransactionList({ transactions, spreadsheetId, onDeleted, onUpdated, loading, categories }) {
+export default function TransactionList({ transactions, spreadsheetId, onDeleted, onUpdated, loading, categories, readOnly }) {
   const [typeFilter, setTypeFilter] = useState('tots')
   const [recFilter, setRecFilter] = useState('tots')
   const [catFilter, setCatFilter] = useState('')
@@ -422,9 +422,9 @@ export default function TransactionList({ transactions, spreadsheetId, onDeleted
 
       {isRecView ? (
         <div>
-          <button className="btn-primary" style={{ marginBottom: 12 }} onClick={() => setShowAddRec(true)}>
+          {!readOnly && <button className="btn-primary" style={{ marginBottom: 12 }} onClick={() => setShowAddRec(true)}>
             + Afegir recurrent
-          </button>
+          </button>}
           {recurrents.length === 0 && !loading && (
             <p className="empty">No hi ha {typeFilter === 'ingrés' ? 'ingressos' : typeFilter === 'despesa' ? 'despeses' : 'entrades'} recurrents.</p>
           )}
@@ -450,10 +450,10 @@ export default function TransactionList({ transactions, spreadsheetId, onDeleted
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
                   <span className="tx-amount gasto">−{fmt(rec.importe)}</span>
-                  <button onClick={() => setEditingRec(rec)}
+                  {!readOnly && <button onClick={() => setEditingRec(rec)}
                     style={{ background: 'none', border: 'none', color: 'var(--text2)', padding: '4px 8px', cursor: 'pointer' }}>
                     <Pencil size={18} />
-                  </button>
+                  </button>}
                 </div>
               </div>
             ))}
@@ -475,7 +475,7 @@ export default function TransactionList({ transactions, spreadsheetId, onDeleted
                   <span className={`tx-amount ${tx.tipo}`} style={tx.actiu === false ? { textDecoration: 'line-through' } : {}}>
                     {tx.tipo === 'gasto' ? '−' : '+'}{fmt(tx.importe)}
                   </span>
-                  <div style={{ display: 'flex', gap: 2 }}>
+                  {!readOnly && <div style={{ display: 'flex', gap: 2 }}>
                     <button onClick={() => setEditing(tx)}
                       style={{ background: 'none', border: 'none', color: 'var(--text2)', padding: '4px 8px', cursor: 'pointer' }}>
                       <Pencil size={18} />
@@ -484,7 +484,7 @@ export default function TransactionList({ transactions, spreadsheetId, onDeleted
                       style={{ background: 'none', border: 'none', color: 'var(--text2)', padding: '4px 8px', cursor: 'pointer', opacity: deleting === tx.id ? 0.4 : 1 }}>
                       <Trash2 size={18} />
                     </button>
-                  </div>
+                  </div>}
                 </div>
               </div>
             ))}

@@ -78,6 +78,7 @@ export async function getTransactions(spreadsheetId) {
   const res = await window.gapi.client.sheets.spreadsheets.values.get({
     spreadsheetId,
     range: `${REG_SHEET}!A2:G`,
+    valueRenderOption: 'UNFORMATTED_VALUE',
   })
   const rows = res.result.values || []
   return rows.map((r) => ({
@@ -227,6 +228,7 @@ export async function applyRecurrents(spreadsheetId) {
     const txRes = await window.gapi.client.sheets.spreadsheets.values.get({
       spreadsheetId,
       range: `${REG_SHEET}!A2:F`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
     })
     const existingRows = txRes.result.values || []
 
