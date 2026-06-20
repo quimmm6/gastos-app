@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, RefreshCw, Eye, EyeOff } from 'lucide-react'
+import { ChevronLeft, ChevronRight, RefreshCw, Eye, EyeOff, ArrowUpDown } from 'lucide-react'
 import { useState, useRef } from 'react'
 import { fmtDate, currentYearMonth, monthName, toYearMonth } from '../utils/dates'
 import { EditModal } from './TransactionList'
@@ -21,6 +21,8 @@ export default function Dashboard({ transactions, loading, onRefresh, categories
   const [showAll, setShowAll] = useState(false)
   const [editing, setEditing] = useState(null)
   const [deleting, setDeleting] = useState(null)
+  const [sortKey, setSortKey] = useState('data-desc')
+  const [showSortMenu, setShowSortMenu] = useState(false)
   const [monthAnimKey, setMonthAnimKey] = useState(0)
   const [monthSlideDir, setMonthSlideDir] = useState('left')
 
@@ -42,6 +44,23 @@ export default function Dashboard({ transactions, loading, onRefresh, categories
 
   const catMap = {}
   ;[...(categories?.gasto || []), ...(categories?.ingreso || [])].forEach(c => { catMap[c.name] = c.icon })
+
+  const SORT_OPTIONS = [
+    { key: 'data-desc', label: 'Data ↓' },
+    { key: 'data-asc',  label: 'Data ↑' },
+    { key: 'import-desc', label: 'Import ↓' },
+    { key: 'import-asc',  label: 'Import ↑' },
+    { key: 'categoria',   label: 'Categoria' },
+  ]
+  const sortTxs = (txs) => {
+    const s = [...txs]
+    if (sortKey === 'data-desc')    s.sort((a, b) => b.fecha.localeCompare(a.fecha))
+    if (sortKey === 'data-asc')     s.sort((a, b) => a.fecha.localeCompare(b.fecha))
+    if (sortKey === 'import-desc')  s.sort((a, b) => b.importe - a.importe)
+    if (sortKey === 'import-asc')   s.sort((a, b) => a.importe - b.importe)
+    if (sortKey === 'categoria')    s.sort((a, b) => a.categoria.localeCompare(b.categoria, 'ca'))
+    return s
+  }
 
   const handleDelete = async (tx) => {
     if (!confirm(`Eliminar "${tx.categoria} ${fmt(tx.importe)}"?`)) return
@@ -108,9 +127,25 @@ export default function Dashboard({ transactions, loading, onRefresh, categories
       <div style={{ marginTop: 20 }}>
         <div className="section-header">
           <span className="section-title">Transaccions del mes</span>
-          <button className="btn-icon" onClick={onRefresh} disabled={loading}>
-            <RefreshCw size={16} style={{ opacity: loading ? 0.4 : 1 }} />
-          </button>
+          <div style={{ display: 'flex', gap: 4, alignItems: 'center', position: 'relative' }}>
+            <button className="btn-icon" onClick={() => setShowSortMenu(s => !s)} title="Ordenar">
+              <ArrowUpDown size={15} />
+            </button>
+            <button className="btn-icon" onClick={onRefresh} disabled={loading}>
+              <RefreshCw size={16} style={{ opacity: loading ? 0.4 : 1 }} />
+            </button>
+            {showSortMenu && (
+              <div style={{ position: 'absolute', top: '110%', right: 0, background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10, padding: 6, zIndex: 100, minWidth: 130, boxShadow: '0 4px 16px rgba(0,0,0,.25)' }}
+                onClick={() => setShowSortMenu(false)}>
+                {SORT_OPTIONS.map(o => (
+                  <button key={o.key} onClick={() => setSortKey(o.key)}
+                    style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 12px', background: 'none', border: 'none', borderRadius: 6, fontSize: 13, cursor: 'pointer', color: sortKey === o.key ? 'var(--accent)' : 'var(--text1)', fontWeight: sortKey === o.key ? 700 : 400 }}>
+                    {o.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         {loading && <p className="empty">Carregant…</p>}
@@ -119,7 +154,7 @@ export default function Dashboard({ transactions, loading, onRefresh, categories
         )}
 
         <div className="recent-list">
-          {(showAll ? monthly : monthly.slice(0, 10)).map((tx) => (
+          {(showAll ? sortTxs(monthly) : sortTxs(monthly).slice(0, 10)).map((tx) => (
             <div key={tx.id} className="tx-item"
               onClick={() => !readOnly && setEditing(tx)}
               style={{ ...(tx.actiu === false ? { opacity: 0.45 } : {}), cursor: readOnly ? 'default' : 'pointer' }}>
