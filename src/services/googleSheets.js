@@ -56,6 +56,9 @@ export function isSignedIn() {
   return !!window.gapi?.client?.getToken()
 }
 
+const TIPO_TO_CAT = { 'gasto': 'Despesa', 'ingreso': 'Ingrés' }
+const CAT_TO_TIPO = { 'Despesa': 'gasto', 'Ingrés': 'ingreso', 'gasto': 'gasto', 'ingreso': 'ingreso' }
+
 export async function initSheet(spreadsheetId) {
   const res = await window.gapi.client.sheets.spreadsheets.values.get({
     spreadsheetId,
@@ -66,7 +69,7 @@ export async function initSheet(spreadsheetId) {
       spreadsheetId,
       range: `${REG_SHEET}!A1:F1`,
       valueInputOption: 'RAW',
-      resource: { values: [['fecha', 'importe', 'tipo', 'categoria', 'descripcion', 'id']] },
+      resource: { values: [['Data', 'Import', 'Tipus', 'Categoria', 'Descripció', 'ID']] },
     })
   }
 }
@@ -80,7 +83,7 @@ export async function getTransactions(spreadsheetId) {
   return rows.map((r) => ({
     fecha: r[0] || '',
     importe: parseFloat(r[1]) || 0,
-    tipo: r[2] || 'gasto',
+    tipo: CAT_TO_TIPO[r[2]] || 'gasto',
     categoria: r[3] || '',
     descripcion: r[4] || '',
     id: r[5] || '',
@@ -94,7 +97,7 @@ export async function addTransaction(spreadsheetId, tx) {
     range: `${REG_SHEET}!A:F`,
     valueInputOption: 'RAW',
     resource: {
-      values: [[tx.fecha, tx.importe, tx.tipo, tx.categoria, tx.descripcion, id]],
+      values: [[tx.fecha, tx.importe, TIPO_TO_CAT[tx.tipo] || tx.tipo, tx.categoria, tx.descripcion, id]],
     },
   })
   return { ...tx, id }
@@ -138,7 +141,7 @@ export async function updateTransaction(spreadsheetId, tx) {
     spreadsheetId,
     range: `${REG_SHEET}!A${rowIndex + 1}:F${rowIndex + 1}`,
     valueInputOption: 'RAW',
-    resource: { values: [[tx.fecha, tx.importe, tx.tipo, tx.categoria, tx.descripcion, tx.id]] },
+    resource: { values: [[tx.fecha, tx.importe, TIPO_TO_CAT[tx.tipo] || tx.tipo, tx.categoria, tx.descripcion, tx.id]] },
   })
 }
 
@@ -154,7 +157,7 @@ export async function getCategories(spreadsheetId) {
     if (rows.length === 0) return null
     const cats = { gasto: [], ingreso: [] }
     rows.forEach(r => {
-      const tipo = r[0], name = r[1], icon = r[2] || '📦'
+      const tipo = CAT_TO_TIPO[r[0]], name = r[1], icon = r[2] || '📦'
       if (tipo === 'gasto' || tipo === 'ingreso') cats[tipo].push({ name, icon })
     })
     return cats
@@ -165,8 +168,8 @@ export async function getCategories(spreadsheetId) {
 
 export async function saveCategories(spreadsheetId, cats) {
   const rows = [
-    ...cats.gasto.map(c => ['gasto', c.name, c.icon]),
-    ...cats.ingreso.map(c => ['ingreso', c.name, c.icon]),
+    ...cats.gasto.map(c => ['Despesa', c.name, c.icon]),
+    ...cats.ingreso.map(c => ['Ingrés', c.name, c.icon]),
   ]
   // Ensure the Categories sheet exists
   try {
@@ -191,6 +194,87 @@ export async function saveCategories(spreadsheetId, cats) {
       valueInputOption: 'RAW',
       resource: { values: rows },
     })
+  }
+}
+
+const REC_SHEET = 'Recurrents'
+
+export async function applyRecurrents(spreadsheetId) {
+  try {
+    const res = await window.gapi.client.sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range: `${REC_SHEET}!A2:F`,
+    })
+    const rows = res.result.values || []
+    if (rows.length === 0) return []
+
+    const now = new Date()
+    const currentYear = now.getFullYear()
+    const currentMonth = now.getMonth() + 1
+    const currentDay = now.getDate()
+    const currentYM = `${currentYear}-${String(currentMonth).padStart(2, '0')}`
+
+    // Load existing transactions to check for duplicates
+    const txRes = await window.gapi.client.sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range: `${REG_SHEET}!A2:F`,
+    })
+    const existingRows = txRes.result.values || []
+
+    const added = []
+    for (const r of rows) {
+      const dia = parseInt(r[0])
+      const inici = r[1] || ''
+      const importe = parseFloat(r[2])
+      const categoria = r[3] || ''
+      const descripcion = r[4] || ''
+      const activa = (r[5] || '').toString().toUpperCase()
+
+      if (!activa || activa === 'FALSE' || activa === 'NO') continue
+      if (!dia || !importe || !categoria) continue
+
+      // Parse start date
+      const iniciParts = inici.split('-')
+      const iniciYear = parseInt(iniciParts[0])
+      const iniciMonth = parseInt(iniciParts[1])
+      if (!iniciYear || !iniciMonth) continue
+
+      // Only apply for months >= inici and up to current month where day has passed
+      // Collect all months from inici to now where day <= currentDay (for current month) or any day (past months)
+      const monthsToCheck = []
+      let y = iniciYear, m = iniciMonth
+      while (y < currentYear || (y === currentYear && m <= currentMonth)) {
+        const isPast = y < currentYear || m < currentMonth
+        const isCurrent = y === currentYear && m === currentMonth
+        if (isPast || (isCurrent && currentDay >= dia)) {
+          monthsToCheck.push(`${y}-${String(m).padStart(2, '0')}`)
+        }
+        m++
+        if (m > 12) { m = 1; y++ }
+      }
+
+      for (const ym of monthsToCheck) {
+        const fecha = `${ym}-${String(dia).padStart(2, '0')}`
+        // Check if already exists: same categoria + same month
+        const alreadyExists = existingRows.some(er =>
+          er[3] === categoria && (er[0] || '').startsWith(ym) && (er[4] || '') === descripcion
+        )
+        if (alreadyExists) continue
+
+        const id = `rec-${Date.now()}-${Math.random().toString(36).slice(2)}`
+        await window.gapi.client.sheets.spreadsheets.values.append({
+          spreadsheetId,
+          range: `${REG_SHEET}!A:F`,
+          valueInputOption: 'RAW',
+          resource: { values: [[fecha, importe, 'Despesa', categoria, descripcion, id]] },
+        })
+        added.push({ fecha, importe, tipo: 'gasto', categoria, descripcion, id })
+      }
+    }
+    return added
+  } catch (e) {
+    console.error('applyRecurrents error', e)
+    return []
   }
 }
 

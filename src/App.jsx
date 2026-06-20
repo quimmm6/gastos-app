@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { Home, List, BarChart2, Tag, Plus, LogOut, Moon, Sun } from 'lucide-react'
-import { loadGoogleAPIs, signIn, signOut, isSignedIn, initSheet, getTransactions, getCategories, saveCategories } from './services/googleSheets'
+import { loadGoogleAPIs, signIn, signOut, isSignedIn, initSheet, getTransactions, getCategories, saveCategories, applyRecurrents } from './services/googleSheets'
 import Dashboard from './components/Dashboard'
 import AddTransaction from './components/AddTransaction'
 import TransactionList from './components/TransactionList'
@@ -117,6 +117,8 @@ export default function App() {
     setLoading(true)
     try {
       await initSheet(config.spreadsheetId)
+      // Apply recurring expenses before loading transactions
+      await applyRecurrents(config.spreadsheetId)
       const txs = await getTransactions(config.spreadsheetId)
       setTransactions(txs.reverse())
       // Load categories from Sheet; migrate from localStorage if Sheet is empty
