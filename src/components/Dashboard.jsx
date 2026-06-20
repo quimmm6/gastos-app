@@ -73,7 +73,7 @@ export default function Dashboard({ transactions, loading, onRefresh, categories
             <div className="value gas">{fmt(gastos)}</div>
           </div>
         </div>
-        <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+        <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
           <div className="balance-label" style={{ margin: 0 }}>Balanç del mes</div>
           <div className={`balance-amount ${balance < 0 ? 'negative' : ''}`}>{fmt(balance)}</div>
         </div>

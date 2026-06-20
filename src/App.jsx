@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, startTransition } from 'react'
 import { createPortal } from 'react-dom'
 import { Home, List, BarChart2, Tag, Plus, LogOut, Moon, Sun } from 'lucide-react'
 import { loadGoogleAPIs, signIn, signOut, isSignedIn, initSheet, getTransactions, getCategories, saveCategories, applyRecurrents, addRecurrent } from './services/googleSheets'
@@ -198,7 +198,7 @@ export default function App() {
     saveCategories(config.spreadsheetId, cats).catch(console.error)
   }
   const mainSwipeX = useRef(null)
-  const goTab = (newTab, dir) => { setTabSlideDir(dir); setTabAnimKey(k => k + 1); setTab(newTab) }
+  const goTab = (newTab, dir) => { startTransition(() => { setTabSlideDir(dir); setTabAnimKey(k => k + 1); setTab(newTab) }) }
   const onMainTouchStart = (e) => { mainSwipeX.current = e.touches[0].clientX }
   const onMainTouchEnd = (e) => {
     if (mainSwipeX.current === null) return
