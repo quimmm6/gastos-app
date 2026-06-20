@@ -125,7 +125,7 @@ export default function Dashboard({ transactions, loading, onRefresh, categories
               style={{ ...(tx.actiu === false ? { opacity: 0.45 } : {}), cursor: readOnly ? 'default' : 'pointer' }}>
               <span className="tx-icon">{catMap[tx.categoria] || '💰'}</span>
               <div className="tx-info">
-                <div className="tx-cat" style={tx.actiu === false ? { textDecoration: 'line-through' } : {}}>{tx.categoria}</div>
+                <div className="tx-cat" style={tx.actiu === false ? { textDecoration: 'line-through' } : {}}>{tx.categoria}{tx.id?.startsWith('rec-') ? ' 🔁' : ''}</div>
                 {tx.descripcion && <div className="tx-desc">{tx.descripcion}</div>}
                 <div className="tx-date">{fmtDate(tx.fecha)}</div>
               </div>
