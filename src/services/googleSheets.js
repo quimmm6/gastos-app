@@ -199,11 +199,21 @@ export async function saveCategories(spreadsheetId, cats) {
 
 const REC_SHEET = 'Recurrents'
 
+function daysInMonth(y, m) { return new Date(y, m, 0).getDate() }
+
+function resolveDay(dia, y, m) {
+  const raw = String(dia).toUpperCase().trim()
+  if (raw === 'P') return 1
+  if (raw === 'U') return daysInMonth(y, m)
+  const n = parseInt(raw)
+  return Math.min(n, daysInMonth(y, m))
+}
+
 export async function applyRecurrents(spreadsheetId) {
   try {
     const res = await window.gapi.client.sheets.spreadsheets.values.get({
       spreadsheetId,
-      range: `${REC_SHEET}!A2:F`,
+      range: `${REC_SHEET}!A2:G`,
     })
     const rows = res.result.values || []
     if (rows.length === 0) return []
@@ -212,9 +222,7 @@ export async function applyRecurrents(spreadsheetId) {
     const currentYear = now.getFullYear()
     const currentMonth = now.getMonth() + 1
     const currentDay = now.getDate()
-    const currentYM = `${currentYear}-${String(currentMonth).padStart(2, '0')}`
 
-    // Load existing transactions to check for duplicates
     const txRes = await window.gapi.client.sheets.spreadsheets.values.get({
       spreadsheetId,
       range: `${REG_SHEET}!A2:F`,
@@ -223,39 +231,39 @@ export async function applyRecurrents(spreadsheetId) {
 
     const added = []
     for (const r of rows) {
-      const dia = parseInt(r[0])
+      const diaRaw = (r[0] || '').toString().trim()
       const inici = r[1] || ''
       const importe = parseFloat(r[2])
-      const categoria = r[3] || ''
-      const descripcion = r[4] || ''
-      const activa = (r[5] || '').toString().toUpperCase()
+      const tipusRaw = (r[3] || 'Despesa').trim()
+      const categoria = r[4] || ''
+      const descripcion = r[5] || ''
+      const activa = (r[6] || '').toString().toUpperCase()
 
-      if (!activa || activa === 'FALSE' || activa === 'NO') continue
-      if (!dia || !importe || !categoria) continue
+      if (activa === 'FALSE' || activa === 'NO') continue
+      if (!diaRaw || !importe || !categoria) continue
 
-      // Parse start date
       const iniciParts = inici.split('-')
       const iniciYear = parseInt(iniciParts[0])
       const iniciMonth = parseInt(iniciParts[1])
       if (!iniciYear || !iniciMonth) continue
 
-      // Only apply for months >= inici and up to current month where day has passed
-      // Collect all months from inici to now where day <= currentDay (for current month) or any day (past months)
+      const tipo = CAT_TO_TIPO[tipusRaw] || 'gasto'
+      const tipusSheet = TIPO_TO_CAT[tipo] || 'Despesa'
+
       const monthsToCheck = []
       let y = iniciYear, m = iniciMonth
       while (y < currentYear || (y === currentYear && m <= currentMonth)) {
+        const realDay = resolveDay(diaRaw, y, m)
         const isPast = y < currentYear || m < currentMonth
         const isCurrent = y === currentYear && m === currentMonth
-        if (isPast || (isCurrent && currentDay >= dia)) {
-          monthsToCheck.push(`${y}-${String(m).padStart(2, '0')}`)
+        if (isPast || (isCurrent && currentDay >= realDay)) {
+          monthsToCheck.push({ ym: `${y}-${String(m).padStart(2, '0')}`, realDay })
         }
-        m++
-        if (m > 12) { m = 1; y++ }
+        m++; if (m > 12) { m = 1; y++ }
       }
 
-      for (const ym of monthsToCheck) {
-        const fecha = `${ym}-${String(dia).padStart(2, '0')}`
-        // Check if already exists: same categoria + same month
+      for (const { ym, realDay } of monthsToCheck) {
+        const fecha = `${ym}-${String(realDay).padStart(2, '0')}`
         const alreadyExists = existingRows.some(er =>
           er[3] === categoria && (er[0] || '').startsWith(ym) && (er[4] || '') === descripcion
         )
@@ -266,9 +274,9 @@ export async function applyRecurrents(spreadsheetId) {
           spreadsheetId,
           range: `${REG_SHEET}!A:F`,
           valueInputOption: 'RAW',
-          resource: { values: [[fecha, importe, 'Despesa', categoria, descripcion, id]] },
+          resource: { values: [[fecha, importe, tipusSheet, categoria, descripcion, id]] },
         })
-        added.push({ fecha, importe, tipo: 'gasto', categoria, descripcion, id })
+        added.push({ fecha, importe, tipo, categoria, descripcion, id })
       }
     }
     return added
@@ -302,17 +310,18 @@ export async function getRecurrents(spreadsheetId) {
   try {
     const res = await window.gapi.client.sheets.spreadsheets.values.get({
       spreadsheetId,
-      range: `${REC_SHEET}!A2:F`,
+      range: `${REC_SHEET}!A2:G`,
     })
     const rows = res.result.values || []
     return rows.map((r, i) => ({
       rowIndex: i + 2,
-      dia: parseInt(r[0]) || 1,
+      dia: (r[0] || '1').toString().trim(),
       inici: r[1] || '',
       importe: parseFloat(r[2]) || 0,
-      categoria: r[3] || '',
-      descripcion: r[4] || '',
-      activa: (r[5] || '').toString().toUpperCase() !== 'FALSE',
+      tipo: CAT_TO_TIPO[(r[3] || 'Despesa').trim()] || 'gasto',
+      categoria: r[4] || '',
+      descripcion: r[5] || '',
+      activa: (r[6] || 'TRUE').toString().toUpperCase() !== 'FALSE',
     }))
   } catch { return [] }
 }
@@ -320,9 +329,9 @@ export async function getRecurrents(spreadsheetId) {
 export async function updateRecurrent(spreadsheetId, rec) {
   await window.gapi.client.sheets.spreadsheets.values.update({
     spreadsheetId,
-    range: `${REC_SHEET}!A${rec.rowIndex}:F${rec.rowIndex}`,
+    range: `${REC_SHEET}!A${rec.rowIndex}:G${rec.rowIndex}`,
     valueInputOption: 'RAW',
-    resource: { values: [[rec.dia, rec.inici, rec.importe, rec.categoria, rec.descripcion, rec.activa ? 'TRUE' : 'FALSE']] },
+    resource: { values: [[rec.dia, rec.inici, rec.importe, TIPO_TO_CAT[rec.tipo] || 'Despesa', rec.categoria, rec.descripcion, rec.activa ? 'TRUE' : 'FALSE']] },
   })
 }
 
@@ -343,8 +352,8 @@ export async function deleteRecurrent(spreadsheetId, rowIndex) {
 export async function addRecurrent(spreadsheetId, rec) {
   await window.gapi.client.sheets.spreadsheets.values.append({
     spreadsheetId,
-    range: `${REC_SHEET}!A:F`,
+    range: `${REC_SHEET}!A:G`,
     valueInputOption: 'RAW',
-    resource: { values: [[rec.dia, rec.inici, rec.importe, rec.categoria, rec.descripcion, 'TRUE']] },
+    resource: { values: [[rec.dia, rec.inici, rec.importe, TIPO_TO_CAT[rec.tipo] || 'Despesa', rec.categoria, rec.descripcion, 'TRUE']] },
   })
 }

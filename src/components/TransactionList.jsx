@@ -94,13 +94,38 @@ function EditModal({ tx, categories, spreadsheetId, onSaved, onClose }) {
   )
 }
 
+function DiaInput({ value, onChange }) {
+  const special = [['P', 'Primer dia'], ['U', 'Últim dia']]
+  const isSpecial = v => v === 'P' || v === 'U'
+  return (
+    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+      {!isSpecial(value) && (
+        <input type="number" min="1" max="31" value={value}
+          onChange={e => { const n = Math.min(31, Math.max(1, parseInt(e.target.value) || 1)); onChange(String(n)) }}
+          style={{ width: 70 }} className="form-input" />
+      )}
+      {special.map(([v, l]) => (
+        <button key={v} type="button"
+          onClick={() => onChange(value === v ? '1' : v)}
+          style={{
+            padding: '8px 12px', borderRadius: 8, fontSize: 12, cursor: 'pointer',
+            background: value === v ? 'var(--accent)' : 'var(--bg3)',
+            border: `1px solid ${value === v ? 'var(--accent)' : 'var(--border)'}`,
+            color: value === v ? '#fff' : 'var(--text2)',
+          }}>{l}</button>
+      ))}
+    </div>
+  )
+}
+
 function EditRecurrentModal({ rec, categories, spreadsheetId, onSaved, onDeleted, onClose, onUpdatePast, onDeletePast }) {
   const [form, setForm] = useState({ ...rec })
   const [saving, setSaving] = useState(false)
-  const [step, setStep] = useState('edit') // 'edit' | 'saveScope' | 'deleteScope'
+  const [step, setStep] = useState('edit')
   const [saveScope, setSaveScope] = useState('future')
   const [deleteScope, setDeleteScope] = useState('future')
   const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }))
+  const cats = form.tipo === 'gasto' ? (categories?.gasto || []) : (categories?.ingreso || [])
   const allCats = [...(categories?.gasto || []), ...(categories?.ingreso || [])]
 
   const handleSaveClick = () => setStep('saveScope')
@@ -138,7 +163,7 @@ function EditRecurrentModal({ rec, categories, spreadsheetId, onSaved, onDeleted
       {step === 'edit' && (
         <>
           <div className="form-group"><label>Dia del mes</label>
-            <input type="number" min="1" max="31" value={form.dia} onChange={set('dia')} />
+            <DiaInput value={String(form.dia)} onChange={v => setForm(f => ({ ...f, dia: v }))} />
           </div>
           <div className="form-group"><label>Data d'inici</label>
             <input type="date" value={form.inici} onChange={set('inici')} />
@@ -146,10 +171,19 @@ function EditRecurrentModal({ rec, categories, spreadsheetId, onSaved, onDeleted
           <div className="form-group"><label>Import (€)</label>
             <input type="number" min="0" step="0.01" value={form.importe} onChange={set('importe')} inputMode="decimal" />
           </div>
+          <div className="form-group">
+            <label>Tipus</label>
+            <div className="tipo-toggle">
+              <button type="button" className={`tipo-btn ${form.tipo === 'gasto' ? 'active gasto' : ''}`}
+                onClick={() => setForm(f => ({ ...f, tipo: 'gasto', categoria: '' }))}>🔴 Despesa</button>
+              <button type="button" className={`tipo-btn ${form.tipo === 'ingreso' ? 'active ingreso' : ''}`}
+                onClick={() => setForm(f => ({ ...f, tipo: 'ingreso', categoria: '' }))}>🟢 Ingrés</button>
+            </div>
+          </div>
           <div className="form-group"><label>Categoria</label>
             <select value={form.categoria} onChange={set('categoria')}>
               <option value="">Selecciona…</option>
-              {allCats.map(c => <option key={c.name} value={c.name}>{c.icon} {c.name}</option>)}
+              {cats.map(c => <option key={c.name} value={c.name}>{c.icon} {c.name}</option>)}
             </select>
           </div>
           <div className="form-group"><label>Descripció</label>
@@ -198,17 +232,17 @@ function EditRecurrentModal({ rec, categories, spreadsheetId, onSaved, onDeleted
 }
 
 function AddRecurrentModal({ categories, spreadsheetId, onAdded, onClose }) {
-  const [form, setForm] = useState({ dia: new Date().getDate(), inici: today(), importe: '', categoria: '', descripcion: '' })
+  const [form, setForm] = useState({ dia: String(new Date().getDate()), inici: today(), importe: '', tipo: 'gasto', categoria: '', descripcion: '' })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }))
-  const allCats = [...(categories?.gasto || []), ...(categories?.ingreso || [])]
+  const cats = form.tipo === 'gasto' ? (categories?.gasto || []) : (categories?.ingreso || [])
 
   const handleSave = async () => {
     if (!form.importe || !form.categoria) { setError('Omple import i categoria'); return }
     setSaving(true); setError('')
     try {
-      await addRecurrent(spreadsheetId, { ...form, dia: parseInt(form.dia), importe: parseFloat(form.importe), activa: true })
+      await addRecurrent(spreadsheetId, { ...form, importe: parseFloat(form.importe), activa: true })
       onAdded()
     } catch (e) { setError('Error en guardar'); console.error(e) }
     finally { setSaving(false) }
@@ -217,11 +251,11 @@ function AddRecurrentModal({ categories, spreadsheetId, onAdded, onClose }) {
   return createPortal(
     <BottomSheet onClose={onClose}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
-        <h2 style={{ fontSize: 17, fontWeight: 700 }}>Nova despesa recurrent</h2>
+        <h2 style={{ fontSize: 17, fontWeight: 700 }}>Nova recurrent</h2>
         <button className="btn-icon" onClick={onClose}><X size={20} /></button>
       </div>
       <div className="form-group"><label>Dia del mes</label>
-        <input type="number" min="1" max="31" value={form.dia} onChange={set('dia')} />
+        <DiaInput value={form.dia} onChange={v => setForm(f => ({ ...f, dia: v }))} />
       </div>
       <div className="form-group"><label>Data d'inici</label>
         <input type="date" value={form.inici} onChange={set('inici')} />
@@ -229,10 +263,18 @@ function AddRecurrentModal({ categories, spreadsheetId, onAdded, onClose }) {
       <div className="form-group"><label>Import (€)</label>
         <input type="number" min="0" step="0.01" value={form.importe} onChange={set('importe')} inputMode="decimal" placeholder="0,00" />
       </div>
+      <div className="form-group"><label>Tipus</label>
+        <div className="tipo-toggle">
+          <button type="button" className={`tipo-btn ${form.tipo === 'gasto' ? 'active gasto' : ''}`}
+            onClick={() => setForm(f => ({ ...f, tipo: 'gasto', categoria: '' }))}>🔴 Despesa</button>
+          <button type="button" className={`tipo-btn ${form.tipo === 'ingreso' ? 'active ingreso' : ''}`}
+            onClick={() => setForm(f => ({ ...f, tipo: 'ingreso', categoria: '' }))}>🟢 Ingrés</button>
+        </div>
+      </div>
       <div className="form-group"><label>Categoria</label>
         <select value={form.categoria} onChange={set('categoria')}>
           <option value="">Selecciona…</option>
-          {allCats.map(c => <option key={c.name} value={c.name}>{c.icon} {c.name}</option>)}
+          {cats.map(c => <option key={c.name} value={c.name}>{c.icon} {c.name}</option>)}
         </select>
       </div>
       <div className="form-group"><label>Descripció (opcional)</label>
@@ -274,6 +316,7 @@ export default function TransactionList({ transactions, spreadsheetId, onDeleted
   )
   const filtered = catFilter ? recFiltered.filter(t => t.categoria === catFilter) : recFiltered
   const availableCats = [...new Set(typeFiltered.map(t => t.categoria))].sort((a, b) => a.localeCompare(b, 'ca'))
+  const catActive = !!catFilter
 
   const handleDelete = async (tx) => {
     if (!confirm(`Eliminar "${tx.categoria} ${fmt(tx.importe)}"?`)) return
@@ -307,23 +350,21 @@ export default function TransactionList({ transactions, spreadsheetId, onDeleted
 
   return (
     <div>
-      {/* Fila 1: tipus */}
-      <div className="filter-bar" style={{ marginBottom: 6 }}>
+      <div className="filter-grid">
+        {/* Fila 1: tipus */}
         {[['tots', 'Tots'], ['despesa', 'Despeses'], ['ingrés', 'Ingressos']].map(([v, l]) => (
           <button key={v} className={`filter-chip ${typeFilter === v ? 'active' : ''}`}
             onClick={() => { setTypeFilter(v); setCatFilter('') }}>{l}</button>
         ))}
-        <select className={`filter-select ${catFilter ? 'active-filter' : ''}`} value={catFilter}
-          onChange={e => setCatFilter(e.target.value)} style={{ marginLeft: 'auto', flexShrink: 1 }}>
-          <option value="">Categories ▾</option>
+        {/* Categories — span 2 files */}
+        <select className={`filter-chip cat-btn ${catActive ? 'active' : ''}`} value={catFilter}
+          onChange={e => setCatFilter(e.target.value)}>
+          <option value="">Catego-{'\n'}ries ▾</option>
           {availableCats.map(c => <option key={c} value={c}>{catMap[c] || ''} {c}</option>)}
         </select>
-      </div>
-
-      {/* Fila 2: recurrència */}
-      <div className="filter-bar" style={{ marginBottom: 12, paddingTop: 0 }}>
+        {/* Fila 2: recurrència */}
         {[['tots', 'Tots'], ['ordinaris', 'Ordinaris'], ['recurrents', 'Recurrents']].map(([v, l]) => (
-          <button key={v} className={`filter-chip ${recFilter === v ? 'active' : ''}`}
+          <button key={v} className={`filter-chip secondary ${recFilter === v ? 'active secondary' : ''}`}
             onClick={() => setRecFilter(v)}>{l}</button>
         ))}
       </div>
