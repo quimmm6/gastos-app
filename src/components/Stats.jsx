@@ -6,7 +6,16 @@ function cssVar(name) {
 }
 import { monthName } from '../utils/dates'
 
-const COLORS = ['#6366f1', '#22c55e', '#f59e0b', '#ef4444', '#06b6d4', '#a855f7', '#f97316', '#84cc16']
+const COLORS_DARK   = ['#818cf8', '#34d399', '#fbbf24', '#f87171', '#22d3ee', '#c084fc', '#fb923c', '#a3e635']
+const COLORS_PASTEL = ['#a5b4fc', '#6ee7b7', '#fde68a', '#fca5a5', '#67e8f9', '#d8b4fe', '#fed7aa', '#d9f99d']
+
+function isLight() { return document.documentElement.getAttribute('data-theme') === 'light' }
+function getColors() { return isLight() ? COLORS_PASTEL : COLORS_DARK }
+function barColor(name) {
+  if (name === 'ingressos') return isLight() ? '#6ee7b7' : '#22c55e'
+  if (name === 'gastos')    return isLight() ? '#fca5a5' : '#ef4444'
+  return isLight() ? '#a5b4fc' : '#6366f1'
+}
 
 function fmt(n) {
   return new Intl.NumberFormat('ca-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n)
@@ -120,9 +129,9 @@ export default function Stats({ transactions }) {
                   contentStyle={{ background: cssVar('--tooltip-bg'), border: `1px solid ${cssVar('--tooltip-border')}`, borderRadius: 8, fontSize: 12, color: cssVar('--text1') }}
                   formatter={(v, name) => [fmt(v), name === 'gastos' ? 'Despeses' : name === 'ingressos' ? 'Ingressos' : 'Balanç']}
                 />
-                <Bar dataKey="ingressos" fill="#22c55e" radius={[4, 4, 0, 0]} animationDuration={400} />
-                <Bar dataKey="gastos" fill="#ef4444" radius={[4, 4, 0, 0]} animationDuration={400} />
-                <Bar dataKey="balanc" fill="#6366f1" radius={[4, 4, 0, 0]} animationDuration={400} />
+                <Bar dataKey="ingressos" fill={barColor('ingressos')} radius={[4, 4, 0, 0]} animationDuration={400} />
+                <Bar dataKey="gastos" fill={barColor('gastos')} radius={[4, 4, 0, 0]} animationDuration={400} />
+                <Bar dataKey="balanc" fill={barColor('balanc')} radius={[4, 4, 0, 0]} animationDuration={400} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -144,7 +153,7 @@ export default function Stats({ transactions }) {
                 <Pie data={catData} dataKey="value" nameKey="name" cx="50%" cy="55%" outerRadius={80}
                   label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false} fontSize={10}
                   animationDuration={400}>
-                  {catData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                  {catData.map((_, i) => { const c = getColors(); return <Cell key={i} fill={c[i % c.length]} /> })}
                 </Pie>
                 <Tooltip formatter={(v) => fmt(v)} contentStyle={{ background: cssVar('--tooltip-bg'), border: `1px solid ${cssVar('--tooltip-border')}`, borderRadius: 8, fontSize: 12, color: cssVar('--text1') }} />
               </PieChart>
@@ -154,7 +163,7 @@ export default function Stats({ transactions }) {
             <div className="bar-row" key={d.name}>
               <span className="bar-label">{d.name}</span>
               <div className="bar-track">
-                <div className="bar-fill" style={{ width: `${(d.value / maxCat) * 100}%`, background: COLORS[i % COLORS.length] }} />
+                {(() => { const c = getColors(); return <div className="bar-fill" style={{ width: `${(d.value / maxCat) * 100}%`, background: c[i % c.length] }} /> })()}
               </div>
               <span className="bar-value">{fmt(d.value)}</span>
             </div>
