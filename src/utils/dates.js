@@ -21,3 +21,13 @@ export function monthName(ym) {
 export function toYearMonth(dateStr) {
   return dateStr?.slice(0, 7) || ''
 }
+
+// "2026-06" or "2026-06-20" → "20 juny 2026" (or "juny 2026" if no day)
+export function fmtDateLong(dateStr) {
+  if (!dateStr) return ''
+  const parts = dateStr.split('-')
+  const y = parseInt(parts[0]), m = parseInt(parts[1]), d = parts[2] ? parseInt(parts[2]) : null
+  const date = new Date(y, m - 1, d || 1)
+  const month = date.toLocaleString('ca-ES', { month: 'long' })
+  return d ? `${d} ${month} ${y}` : `${month} ${y}`
+}

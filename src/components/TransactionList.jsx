@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { Trash2, Pencil, X } from 'lucide-react'
 import { deleteTransaction, updateTransaction, getRecurrents, updateRecurrent, deleteRecurrent, addRecurrent } from '../services/googleSheets'
-import { fmtDate } from '../utils/dates'
+import { fmtDate, fmtDateLong } from '../utils/dates'
 import BottomSheet from './BottomSheet'
 
 function fmt(n) {
@@ -408,7 +408,16 @@ export default function TransactionList({ transactions, spreadsheetId, onDeleted
                 <div className="tx-info">
                   <div className="tx-cat">{rec.categoria}</div>
                   {rec.descripcion && <div className="tx-desc">{rec.descripcion}</div>}
-                  <div className="tx-date">Dia {rec.dia} · des de {rec.inici} · {rec.activa ? '✅' : '⏸'}</div>
+                  <div className="tx-date" style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <span>
+                      {rec.dia === 'P' ? 'Primer dia' : rec.dia === 'U' ? 'Últim dia' : `Dia ${rec.dia}`}
+                      {' · '}
+                      <span style={{ color: rec.activa ? 'var(--green)' : 'var(--red)', fontWeight: 600 }}>
+                        {rec.activa ? 'Actiu' : 'No actiu'}
+                      </span>
+                    </span>
+                    <span>Des del {fmtDateLong(rec.inici)}</span>
+                  </div>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
                   <span className="tx-amount gasto">−{fmt(rec.importe)}</span>
