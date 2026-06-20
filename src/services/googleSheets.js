@@ -142,7 +142,6 @@ export async function updateTransaction(spreadsheetId, tx) {
 
 const CATS_SHEET = 'Categories'
 
-// Returns { cats, exists } — cats is null if empty/error, exists=false only if sheet tab missing
 export async function getCategories(spreadsheetId) {
   try {
     const res = await window.gapi.client.sheets.spreadsheets.values.get({
@@ -150,25 +149,25 @@ export async function getCategories(spreadsheetId) {
       range: `${CATS_SHEET}!A1:C`,
     })
     const rows = res.result.values || []
-    if (rows.length === 0) return { cats: null, exists: true }
+    if (rows.length === 0) return null
     const cats = { gasto: [], ingreso: [] }
     rows.forEach(r => {
       const tipo = r[0], name = r[1], icon = r[2] || '📦'
       if (tipo === 'gasto' || tipo === 'ingreso') cats[tipo].push({ name, icon })
     })
-    return { cats, exists: true }
-  } catch (e) {
-    const is400 = e?.status === 400 || e?.result?.error?.code === 400
-    return { cats: null, exists: !is400 }
+    return cats
+  } catch {
+    return null
   }
 }
 
 export async function saveCategories(spreadsheetId, cats) {
+  const rows = [
+    ...cats.gasto.map(c => ['gasto', c.name, c.icon]),
+    ...cats.ingreso.map(c => ['ingreso', c.name, c.icon]),
+  ]
+  // Ensure the Categories sheet exists
   try {
-    const rows = [
-      ...cats.gasto.map(c => ['gasto', c.name, c.icon]),
-      ...cats.ingreso.map(c => ['ingreso', c.name, c.icon]),
-    ]
     const meta = await window.gapi.client.sheets.spreadsheets.get({ spreadsheetId })
     const exists = meta.result.sheets.some(s => s.properties.title === CATS_SHEET)
     if (!exists) {
@@ -177,20 +176,19 @@ export async function saveCategories(spreadsheetId, cats) {
         resource: { requests: [{ addSheet: { properties: { title: CATS_SHEET } } }] },
       })
     }
-    await window.gapi.client.sheets.spreadsheets.values.clear({
+  } catch {}
+  // Clear and rewrite
+  await window.gapi.client.sheets.spreadsheets.values.clear({
+    spreadsheetId,
+    range: `${CATS_SHEET}!A:C`,
+  })
+  if (rows.length > 0) {
+    await window.gapi.client.sheets.spreadsheets.values.update({
       spreadsheetId,
-      range: `${CATS_SHEET}!A:C`,
+      range: `${CATS_SHEET}!A1`,
+      valueInputOption: 'RAW',
+      resource: { values: rows },
     })
-    if (rows.length > 0) {
-      await window.gapi.client.sheets.spreadsheets.values.update({
-        spreadsheetId,
-        range: `${CATS_SHEET}!A1`,
-        valueInputOption: 'RAW',
-        resource: { values: rows },
-      })
-    }
-  } catch (e) {
-    console.error('saveCategories error', e)
   }
 }
 

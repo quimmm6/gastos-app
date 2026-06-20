@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { Home, List, BarChart2, Tag, Plus, LogOut, Moon, Sun, RefreshCw } from 'lucide-react'
+import { Home, List, BarChart2, Tag, Plus, LogOut, Moon, Sun } from 'lucide-react'
 import { loadGoogleAPIs, signIn, signOut, isSignedIn, initSheet, getTransactions, getCategories, saveCategories } from './services/googleSheets'
 import Dashboard from './components/Dashboard'
 import AddTransaction from './components/AddTransaction'
@@ -119,21 +119,20 @@ export default function App() {
       await initSheet(config.spreadsheetId)
       const txs = await getTransactions(config.spreadsheetId)
       setTransactions(txs.reverse())
-      // Load categories from Sheet (independent of transactions, never throws)
-      try {
-        const { cats: sheetCats, exists } = await getCategories(config.spreadsheetId)
-        if (sheetCats) {
-          setCategories(sheetCats)
-        } else if (!exists) {
-          // Sheet tab missing — first time: push localStorage (or defaults) once
-          const localCats = loadCats()
-          await saveCategories(config.spreadsheetId, localCats)
-          setCategories(localCats)
-        }
-        // If exists but cats is null (API error or empty), keep current state
+      // Load categories from Sheet; migrate from localStorage if Sheet is empty
+      const sheetCats = await getCategories(config.spreadsheetId)
+      if (sheetCats) {
+        setCategories(sheetCats)
         localStorage.removeItem('gastos_cats')
         localStorage.removeItem('gastos_cats_v')
-      } catch (e) { console.error('categories sync error', e) }
+      } else {
+        // First time: push localStorage cats to Sheet
+        const localCats = loadCats()
+        await saveCategories(config.spreadsheetId, localCats)
+        setCategories(localCats)
+        localStorage.removeItem('gastos_cats')
+        localStorage.removeItem('gastos_cats_v')
+      }
     } catch (e) { console.error(e) }
     finally { setLoading(false) }
   }, [config])
@@ -194,7 +193,7 @@ export default function App() {
   const handleSaveConfig = (cfg) => { localStorage.setItem('gastos_config', JSON.stringify(cfg)); setConfig(cfg) }
   const handleSaveCats = (cats) => {
     setCategories(cats)
-    saveCategories(config.spreadsheetId, cats)
+    saveCategories(config.spreadsheetId, cats).catch(console.error)
   }
   const mainSwipeX = useRef(null)
   const goTab = (newTab, dir) => { setTabSlideDir(dir); setTabAnimKey(k => k + 1); setTab(newTab) }
@@ -230,7 +229,6 @@ export default function App() {
             <button className="btn-icon" onClick={toggleTheme} title="Canviar tema">
               {darkMode ? <Sun size={18} /> : <Moon size={18} />}
             </button>
-            <button className="btn-icon" onClick={fetchTransactions} disabled={loading} title="Actualitzar"><RefreshCw size={18} style={{ opacity: loading ? 0.4 : 1 }} /></button>
             <button className="btn-icon" onClick={handleSignOut} title="Sortir"><LogOut size={18} /></button>
           </div>
         </header>
