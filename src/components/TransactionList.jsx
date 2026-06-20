@@ -338,20 +338,21 @@ function AddRecurrentModal({ categories, spreadsheetId, onAdded, onClose }) {
   )
 }
 
-export default function TransactionList({ transactions, spreadsheetId, onDeleted, onUpdated, loading, categories, readOnly }) {
+export default function TransactionList({ transactions, spreadsheetId, onDeleted, onUpdated, loading, categories, readOnly, demoRecurrents }) {
   const [typeFilter, setTypeFilter] = useState('tots')
   const [recFilter, setRecFilter] = useState('tots')
   const [catFilter, setCatFilter] = useState('')
   const [deleting, setDeleting] = useState(null)
   const [editing, setEditing] = useState(null)
-  const [recurrents, setRecurrents] = useState([])
+  const [recurrents, setRecurrents] = useState(demoRecurrents || [])
   const [editingRec, setEditingRec] = useState(null)
   const [showAddRec, setShowAddRec] = useState(false)
 
   const isRecView = recFilter === 'recurrents'
 
   useEffect(() => {
-    if (isRecView) getRecurrents(spreadsheetId).then(setRecurrents)
+    if (isRecView && spreadsheetId) getRecurrents(spreadsheetId).then(setRecurrents)
+    else if (isRecView && demoRecurrents) setRecurrents(demoRecurrents)
   }, [isRecView, spreadsheetId])
 
   const catMap = {}

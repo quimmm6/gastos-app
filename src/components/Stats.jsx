@@ -138,10 +138,10 @@ export default function Stats({ transactions }) {
       {catData.length > 0 && (
         <div className="stats-section">
           <div className="stats-title">Despeses per categoria</div>
-          <div style={{ width: '100%', height: 200, marginBottom: 16 }}>
+          <div style={{ width: '100%', height: 240, marginBottom: 16 }}>
             <ResponsiveContainer>
-              <PieChart>
-                <Pie data={catData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80}
+              <PieChart margin={{ top: 20, bottom: 20, left: 20, right: 20 }}>
+                <Pie data={catData} dataKey="value" nameKey="name" cx="50%" cy="55%" outerRadius={80}
                   label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false} fontSize={10}
                   animationDuration={400}>
                   {catData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}

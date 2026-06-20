@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef, startTransition } from 'react
 import { createPortal } from 'react-dom'
 import { Home, List, BarChart2, Tag, Plus, LogOut, Moon, Sun } from 'lucide-react'
 import { loadGoogleAPIs, signIn, signOut, isSignedIn, initSheet, getTransactions, getCategories, saveCategories, applyRecurrents, addRecurrent } from './services/googleSheets'
-import { DEMO_TRANSACTIONS, DEMO_CATEGORIES } from './demoData'
+import { DEMO_TRANSACTIONS, DEMO_CATEGORIES, DEMO_RECURRENTS } from './demoData'
 import Dashboard from './components/Dashboard'
 import AddTransaction from './components/AddTransaction'
 import TransactionList from './components/TransactionList'
@@ -251,7 +251,7 @@ export default function App() {
         <main className="app-main" onTouchStart={onMainTouchStart} onTouchEnd={onMainTouchEnd}>
           <div key={tabAnimKey} className={`page-slide page-slide-${tabSlideDir}`}>
             {tab === 'inicio' && <Dashboard transactions={transactions} loading={loading} onRefresh={demoMode ? () => {} : fetchTransactions} categories={categories} spreadsheetId={config?.spreadsheetId} onDeleted={demoMode ? () => {} : onTransactionDeleted} onUpdated={demoMode ? () => {} : onTransactionUpdated} readOnly={demoMode} />}
-            {tab === 'lista' && <TransactionList transactions={transactions} spreadsheetId={config?.spreadsheetId} onDeleted={demoMode ? () => {} : onTransactionDeleted} onUpdated={demoMode ? () => {} : onTransactionUpdated} loading={loading} categories={categories} readOnly={demoMode} />}
+            {tab === 'lista' && <TransactionList transactions={transactions} spreadsheetId={config?.spreadsheetId} onDeleted={demoMode ? () => {} : onTransactionDeleted} onUpdated={demoMode ? () => {} : onTransactionUpdated} loading={loading} categories={categories} readOnly={demoMode} demoRecurrents={demoMode ? DEMO_RECURRENTS : null} />}
             {tab === 'stats' && <Stats transactions={transactions} />}
             {tab === 'cats' && <Categories categories={categories} onSave={demoMode ? () => {} : handleSaveCats} transactions={transactions} spreadsheetId={config?.spreadsheetId} onReassigned={demoMode ? () => {} : onCategoryReassigned} readOnly={demoMode} />}
           </div>
