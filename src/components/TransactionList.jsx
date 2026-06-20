@@ -85,6 +85,14 @@ function EditModal({ tx, categories, spreadsheetId, onSaved, onClose }) {
       <div className="form-group"><label>Descripció</label>
         <textarea value={form.descripcion} onChange={set('descripcion')} />
       </div>
+      <div className="form-group"><label>Comptabilitzar</label>
+        <div className="tipo-toggle">
+          <button type="button" className={`tipo-btn ${form.actiu !== false ? 'active ingreso' : ''}`}
+            onClick={() => setForm(f => ({ ...f, actiu: true }))}>Sí</button>
+          <button type="button" className={`tipo-btn ${form.actiu === false ? 'active gasto' : ''}`}
+            onClick={() => setForm(f => ({ ...f, actiu: false }))}>No</button>
+        </div>
+      </div>
       {error && <p style={{ color: 'var(--red)', fontSize: 13, marginBottom: 10 }}>{error}</p>}
       <button className="btn-primary" onClick={handleSave} disabled={saving}>
         {saving ? 'Desant…' : 'Desar canvis'}
@@ -448,15 +456,15 @@ export default function TransactionList({ transactions, spreadsheetId, onDeleted
           {!loading && filtered.length === 0 && <p className="empty">No hi ha transaccions.</p>}
           <div className="recent-list">
             {filtered.map((tx) => (
-              <div key={tx.id} className="tx-item">
+              <div key={tx.id} className="tx-item" style={tx.actiu === false ? { opacity: 0.45 } : {}}>
                 <span className="tx-icon">{catMap[tx.categoria] || '💰'}</span>
                 <div className="tx-info">
-                  <div className="tx-cat">{tx.categoria}{tx.id.startsWith('rec-') ? ' 🔁' : ''}</div>
+                  <div className="tx-cat" style={tx.actiu === false ? { textDecoration: 'line-through' } : {}}>{tx.categoria}{tx.id.startsWith('rec-') ? ' 🔁' : ''}</div>
                   {tx.descripcion && <div className="tx-desc">{tx.descripcion}</div>}
                   <div className="tx-date">{fmtDate(tx.fecha)}</div>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
-                  <span className={`tx-amount ${tx.tipo}`}>
+                  <span className={`tx-amount ${tx.tipo}`} style={tx.actiu === false ? { textDecoration: 'line-through' } : {}}>
                     {tx.tipo === 'gasto' ? '−' : '+'}{fmt(tx.importe)}
                   </span>
                   <div style={{ display: 'flex', gap: 2 }}>

@@ -77,7 +77,7 @@ export async function initSheet(spreadsheetId) {
 export async function getTransactions(spreadsheetId) {
   const res = await window.gapi.client.sheets.spreadsheets.values.get({
     spreadsheetId,
-    range: `${REG_SHEET}!A2:F`,
+    range: `${REG_SHEET}!A2:G`,
   })
   const rows = res.result.values || []
   return rows.map((r) => ({
@@ -87,6 +87,7 @@ export async function getTransactions(spreadsheetId) {
     categoria: r[3] || '',
     descripcion: r[4] || '',
     id: r[5] || '',
+    actiu: (r[6] ?? 'TRUE').toString().toUpperCase() !== 'FALSE',
   }))
 }
 
@@ -94,13 +95,13 @@ export async function addTransaction(spreadsheetId, tx) {
   const id = Date.now().toString()
   await window.gapi.client.sheets.spreadsheets.values.append({
     spreadsheetId,
-    range: `${REG_SHEET}!A:F`,
+    range: `${REG_SHEET}!A:G`,
     valueInputOption: 'RAW',
     resource: {
-      values: [[tx.fecha, tx.importe, TIPO_TO_CAT[tx.tipo] || tx.tipo, tx.categoria, tx.descripcion, id]],
+      values: [[tx.fecha, tx.importe, TIPO_TO_CAT[tx.tipo] || tx.tipo, tx.categoria, tx.descripcion, id, 'TRUE']],
     },
   })
-  return { ...tx, id }
+  return { ...tx, id, actiu: true }
 }
 
 export async function deleteTransaction(spreadsheetId, id) {
@@ -139,9 +140,9 @@ export async function updateTransaction(spreadsheetId, tx) {
 
   await window.gapi.client.sheets.spreadsheets.values.update({
     spreadsheetId,
-    range: `${REG_SHEET}!A${rowIndex + 1}:F${rowIndex + 1}`,
+    range: `${REG_SHEET}!A${rowIndex + 1}:G${rowIndex + 1}`,
     valueInputOption: 'RAW',
-    resource: { values: [[tx.fecha, tx.importe, TIPO_TO_CAT[tx.tipo] || tx.tipo, tx.categoria, tx.descripcion, tx.id]] },
+    resource: { values: [[tx.fecha, tx.importe, TIPO_TO_CAT[tx.tipo] || tx.tipo, tx.categoria, tx.descripcion, tx.id, tx.actiu === false ? 'FALSE' : 'TRUE']] },
   })
 }
 
@@ -239,7 +240,6 @@ export async function applyRecurrents(spreadsheetId) {
       const descripcion = r[5] || ''
       const activa = (r[6] || '').toString().toUpperCase()
 
-      if (activa === 'FALSE' || activa === 'NO') continue
       if (!diaRaw || !importe || !categoria) continue
 
       const iniciParts = inici.split('-')
@@ -270,13 +270,14 @@ export async function applyRecurrents(spreadsheetId) {
         if (alreadyExists) continue
 
         const id = `rec-${Date.now()}-${Math.random().toString(36).slice(2)}`
+        const actiu = !(activa === 'FALSE' || activa === 'NO')
         await window.gapi.client.sheets.spreadsheets.values.append({
           spreadsheetId,
-          range: `${REG_SHEET}!A:F`,
+          range: `${REG_SHEET}!A:G`,
           valueInputOption: 'RAW',
-          resource: { values: [[fecha, importe, tipusSheet, categoria, descripcion, id]] },
+          resource: { values: [[fecha, importe, tipusSheet, categoria, descripcion, id, actiu ? 'TRUE' : 'FALSE']] },
         })
-        added.push({ fecha, importe, tipo, categoria, descripcion, id })
+        added.push({ fecha, importe, tipo, categoria, descripcion, id, actiu })
       }
     }
     return added

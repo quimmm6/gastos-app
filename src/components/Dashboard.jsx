@@ -26,12 +26,13 @@ export default function Dashboard({ transactions, loading, onRefresh, categories
   const canNext = idx > 0
 
   const monthly = transactions.filter(t => toYearMonth(t.fecha) === safeYm)
-  const ingresos = monthly.filter(t => t.tipo === 'ingreso').reduce((s, t) => s + t.importe, 0)
-  const gastos = monthly.filter(t => t.tipo === 'gasto').reduce((s, t) => s + t.importe, 0)
+  const monthlyActive = monthly.filter(t => t.actiu !== false)
+  const ingresos = monthlyActive.filter(t => t.tipo === 'ingreso').reduce((s, t) => s + t.importe, 0)
+  const gastos = monthlyActive.filter(t => t.tipo === 'gasto').reduce((s, t) => s + t.importe, 0)
   const balance = ingresos - gastos
 
   const year = safeYm.slice(0, 4)
-  const yearTxs = transactions.filter(t => t.fecha?.startsWith(year))
+  const yearTxs = transactions.filter(t => t.fecha?.startsWith(year) && t.actiu !== false)
   const yearBalance = yearTxs.filter(t => t.tipo === 'ingreso').reduce((s, t) => s + t.importe, 0)
     - yearTxs.filter(t => t.tipo === 'gasto').reduce((s, t) => s + t.importe, 0)
 

@@ -52,7 +52,7 @@ export default function Stats({ transactions }) {
   const [selYear, setSelYear] = useState(currentYear)
   const [selMonth, setSelMonth] = useState(currentYM)
 
-  let filteredTxs = transactions
+  let filteredTxs = transactions.filter(t => t.actiu !== false)
   let chartMonths = []
 
   if (period === 'any') {
