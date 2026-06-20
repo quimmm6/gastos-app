@@ -297,3 +297,54 @@ export async function reassignCategory(spreadsheetId, oldCat, newCat) {
   })
   return updates.length
 }
+
+export async function getRecurrents(spreadsheetId) {
+  try {
+    const res = await window.gapi.client.sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range: `${REC_SHEET}!A2:F`,
+    })
+    const rows = res.result.values || []
+    return rows.map((r, i) => ({
+      rowIndex: i + 2,
+      dia: parseInt(r[0]) || 1,
+      inici: r[1] || '',
+      importe: parseFloat(r[2]) || 0,
+      categoria: r[3] || '',
+      descripcion: r[4] || '',
+      activa: (r[5] || '').toString().toUpperCase() !== 'FALSE',
+    }))
+  } catch { return [] }
+}
+
+export async function updateRecurrent(spreadsheetId, rec) {
+  await window.gapi.client.sheets.spreadsheets.values.update({
+    spreadsheetId,
+    range: `${REC_SHEET}!A${rec.rowIndex}:F${rec.rowIndex}`,
+    valueInputOption: 'RAW',
+    resource: { values: [[rec.dia, rec.inici, rec.importe, rec.categoria, rec.descripcion, rec.activa ? 'TRUE' : 'FALSE']] },
+  })
+}
+
+export async function deleteRecurrent(spreadsheetId, rowIndex) {
+  const meta = await window.gapi.client.sheets.spreadsheets.get({ spreadsheetId })
+  const sheet = meta.result.sheets.find(s => s.properties.title === REC_SHEET)
+  if (!sheet) return
+  await window.gapi.client.sheets.spreadsheets.batchUpdate({
+    spreadsheetId,
+    resource: {
+      requests: [{ deleteDimension: {
+        range: { sheetId: sheet.properties.sheetId, dimension: 'ROWS', startIndex: rowIndex - 1, endIndex: rowIndex },
+      }}],
+    },
+  })
+}
+
+export async function addRecurrent(spreadsheetId, rec) {
+  await window.gapi.client.sheets.spreadsheets.values.append({
+    spreadsheetId,
+    range: `${REC_SHEET}!A:F`,
+    valueInputOption: 'RAW',
+    resource: { values: [[rec.dia, rec.inici, rec.importe, rec.categoria, rec.descripcion, 'TRUE']] },
+  })
+}
