@@ -73,7 +73,7 @@ export default function Dashboard({ transactions, loading, onRefresh, categories
             <div className="value gas">{fmt(gastos)}</div>
           </div>
         </div>
-        <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+        <div style={{ marginTop: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
           <div className="balance-label" style={{ margin: 0 }}>Balanç del mes</div>
           <div className={`balance-amount ${balance < 0 ? 'negative' : ''}`}>{fmt(balance)}</div>
         </div>
@@ -105,7 +105,7 @@ export default function Dashboard({ transactions, loading, onRefresh, categories
         )}
 
         <div className="recent-list">
-          {monthly.slice(0, 10).map((tx) => (
+          {monthly.map((tx) => (
             <div key={tx.id} className="tx-item">
               <span className="tx-icon">{catMap[tx.categoria] || '💰'}</span>
               <div className="tx-info">
