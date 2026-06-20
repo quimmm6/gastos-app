@@ -1,3 +1,5 @@
+function parseNum(val) { return parseFloat(String(val).replace(',', '.')) || 0 }
+
 const SCOPES = 'https://www.googleapis.com/auth/spreadsheets'
 const REG_SHEET = 'Registre'
 const DISCOVERY_DOC = 'https://sheets.googleapis.com/$discovery/rest?version=v4'
@@ -78,12 +80,11 @@ export async function getTransactions(spreadsheetId) {
   const res = await window.gapi.client.sheets.spreadsheets.values.get({
     spreadsheetId,
     range: `${REG_SHEET}!A2:G`,
-    valueRenderOption: 'UNFORMATTED_VALUE',
   })
   const rows = res.result.values || []
   return rows.map((r) => ({
     fecha: r[0] || '',
-    importe: parseFloat(r[1]) || 0,
+    importe: parseNum(r[1]),
     tipo: CAT_TO_TIPO[r[2]] || 'gasto',
     categoria: r[3] || '',
     descripcion: r[4] || '',
@@ -228,7 +229,6 @@ export async function applyRecurrents(spreadsheetId) {
     const txRes = await window.gapi.client.sheets.spreadsheets.values.get({
       spreadsheetId,
       range: `${REG_SHEET}!A2:F`,
-      valueRenderOption: 'UNFORMATTED_VALUE',
     })
     const existingRows = txRes.result.values || []
 
@@ -236,7 +236,7 @@ export async function applyRecurrents(spreadsheetId) {
     for (const r of rows) {
       const diaRaw = (r[0] || '').toString().trim()
       const inici = r[1] || ''
-      const importe = parseFloat(r[2])
+      const importe = parseNum(r[2])
       const tipusRaw = (r[3] || 'Despesa').trim()
       const categoria = r[4] || ''
       const descripcion = r[5] || ''
@@ -320,7 +320,7 @@ export async function getRecurrents(spreadsheetId) {
       rowIndex: i + 2,
       dia: (r[0] || '1').toString().trim(),
       inici: r[1] || '',
-      importe: parseFloat(r[2]) || 0,
+      importe: parseNum(r[2]) || 0,
       tipo: CAT_TO_TIPO[(r[3] || 'Despesa').trim()] || 'gasto',
       categoria: r[4] || '',
       descripcion: r[5] || '',
