@@ -85,14 +85,16 @@ function EditModal({ tx, categories, spreadsheetId, onSaved, onClose }) {
       <div className="form-group"><label>Descripció</label>
         <textarea value={form.descripcion} onChange={set('descripcion')} />
       </div>
-      <div className="form-group"><label>Comptabilitzar</label>
-        <div className="tipo-toggle">
-          <button type="button" className={`tipo-btn ${form.actiu !== false ? 'active ingreso' : ''}`}
-            onClick={() => setForm(f => ({ ...f, actiu: true }))}>Sí</button>
-          <button type="button" className={`tipo-btn ${form.actiu === false ? 'active gasto' : ''}`}
-            onClick={() => setForm(f => ({ ...f, actiu: false }))}>No</button>
+      {form.id?.startsWith('rec-') && (
+        <div className="form-group"><label>Comptabilitzar</label>
+          <div className="tipo-toggle">
+            <button type="button" className={`tipo-btn ${form.actiu !== false ? 'active ingreso' : ''}`}
+              onClick={() => setForm(f => ({ ...f, actiu: true }))}>Sí</button>
+            <button type="button" className={`tipo-btn ${form.actiu === false ? 'active gasto' : ''}`}
+              onClick={() => setForm(f => ({ ...f, actiu: false }))}>No</button>
+          </div>
         </div>
-      </div>
+      )}
       {error && <p style={{ color: 'var(--red)', fontSize: 13, marginBottom: 10 }}>{error}</p>}
       <button className="btn-primary" onClick={handleSave} disabled={saving}>
         {saving ? 'Desant…' : 'Desar canvis'}
