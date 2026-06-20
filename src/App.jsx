@@ -119,18 +119,21 @@ export default function App() {
       await initSheet(config.spreadsheetId)
       const txs = await getTransactions(config.spreadsheetId)
       setTransactions(txs.reverse())
-      // Load categories from Sheet; if empty, migrate from localStorage once
-      const sheetCats = await getCategories(config.spreadsheetId)
-      if (sheetCats) {
-        setCategories(sheetCats)
-      } else {
-        // Sheet has no categories yet — push localStorage (or defaults) once
-        const localCats = loadCats()
-        await saveCategories(config.spreadsheetId, localCats)
-        setCategories(localCats)
-      }
-      localStorage.removeItem('gastos_cats')
-      localStorage.removeItem('gastos_cats_v')
+      // Load categories from Sheet (independent of transactions, never throws)
+      try {
+        const { cats: sheetCats, exists } = await getCategories(config.spreadsheetId)
+        if (sheetCats) {
+          setCategories(sheetCats)
+        } else if (!exists) {
+          // Sheet tab missing — first time: push localStorage (or defaults) once
+          const localCats = loadCats()
+          await saveCategories(config.spreadsheetId, localCats)
+          setCategories(localCats)
+        }
+        // If exists but cats is null (API error or empty), keep current state
+        localStorage.removeItem('gastos_cats')
+        localStorage.removeItem('gastos_cats_v')
+      } catch (e) { console.error('categories sync error', e) }
     } catch (e) { console.error(e) }
     finally { setLoading(false) }
   }, [config])
