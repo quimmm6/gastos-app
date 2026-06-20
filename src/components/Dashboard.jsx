@@ -63,8 +63,6 @@ export default function Dashboard({ transactions, loading, onRefresh, categories
 
       <div key={monthAnimKey} className={`page-slide page-slide-${monthSlideDir}`}>
       <div className="card balance-card" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd} style={{ touchAction: 'pan-y' }}>
-        <div className="balance-label">Balanç del mes</div>
-        <div className={`balance-amount ${balance >= 0 ? 'positive' : 'negative'}`}>{fmt(balance)}</div>
         <div className="balance-row">
           <div className="balance-mini">
             <div className="label">Ingressos</div>
@@ -74,6 +72,10 @@ export default function Dashboard({ transactions, loading, onRefresh, categories
             <div className="label">Despeses</div>
             <div className="value gas">{fmt(gastos)}</div>
           </div>
+        </div>
+        <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+          <div className="balance-label" style={{ margin: 0 }}>Balanç del mes</div>
+          <div className={`balance-amount ${balance < 0 ? 'negative' : ''}`}>{fmt(balance)}</div>
         </div>
         <div className="balance-accumulated">
           <span>Acumulat {year}:</span>

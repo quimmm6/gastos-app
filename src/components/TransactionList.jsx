@@ -97,8 +97,10 @@ function EditModal({ tx, categories, spreadsheetId, onSaved, onClose }) {
 const HIGH_DAYS = ['29', '30', '31']
 
 function DiaInput({ value, onChange }) {
-  const isSpecial = value === 'P' || value === 'U'
-  const numVal = isSpecial ? '1' : value
+  const isP = value === 'P'
+  const isU = value === 'U'
+  const isSpecial = isP || isU
+  const numVal = isSpecial ? (isU ? '31' : '1') : value
   const showWarning = HIGH_DAYS.includes(value)
 
   return (
@@ -107,9 +109,9 @@ function DiaInput({ value, onChange }) {
         <select value={numVal} disabled={isSpecial}
           onChange={e => onChange(e.target.value)}
           style={{
-            flex: 1, background: isSpecial ? 'var(--bg3)' : 'var(--bg3)',
+            flex: 1, background: 'var(--bg3)',
             border: '1px solid var(--border)', color: isSpecial ? 'var(--text2)' : 'var(--text1)',
-            borderRadius: 8, padding: '10px 12px', fontSize: 15, opacity: isSpecial ? 0.4 : 1,
+            borderRadius: 8, padding: '10px 12px', fontSize: 15, opacity: isSpecial ? 0.45 : 1,
             WebkitAppearance: 'none', appearance: 'none',
           }}>
           {Array.from({ length: 31 }, (_, i) => String(i + 1)).map(d => (
@@ -117,7 +119,7 @@ function DiaInput({ value, onChange }) {
           ))}
         </select>
         {[['P', 'Primer'], ['U', 'Últim']].map(([v, l]) => (
-          <button key={v} type="button" onClick={() => onChange(value === v ? numVal : v)}
+          <button key={v} type="button" onClick={() => onChange(value === v ? (v === 'P' ? '1' : '31') : v)}
             style={{
               padding: '10px 12px', borderRadius: 8, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap',
               background: value === v ? 'var(--accent)' : 'var(--bg3)',
@@ -126,9 +128,10 @@ function DiaInput({ value, onChange }) {
             }}>{l}</button>
         ))}
       </div>
-      {showWarning && (
+      {isU && <p style={{ fontSize: 12, color: 'var(--text2)', margin: 0 }}>S'adaptarà a l'últim dia de cada mes.</p>}
+      {showWarning && !isSpecial && (
         <p style={{ fontSize: 12, color: 'var(--text2)', margin: 0 }}>
-          ⚠️ Alguns mesos no tenen el dia {value}. Considera usar "Últim dia".
+          ⚠️ Alguns mesos no tenen el dia {value}. Considera "Últim dia".
         </p>
       )}
     </div>
