@@ -76,11 +76,11 @@ function SplashLogo({ size = 120 }) {
   const circ = Math.round(2 * Math.PI * r)
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} fill="none" xmlns="http://www.w3.org/2000/svg">
-      <circle cx={cx} cy={cy} r={r} stroke="#818cf8" strokeWidth={2.8 * k}
+      <circle cx={cx} cy={cy} r={r} stroke="var(--accent-light)" strokeWidth={2.8 * k}
         strokeDasharray={circ} strokeDashoffset={circ}
         style={{ animation: 'drawQ 1.2s ease forwards' }} />
       <line x1={22*k} y1={22*k} x2={33*k} y2={33*k}
-        stroke="#818cf8" strokeWidth={3.2 * k} strokeLinecap="round"
+        stroke="var(--accent-light)" strokeWidth={3.2 * k} strokeLinecap="round"
         strokeDasharray={20 * k} strokeDashoffset={20 * k}
         style={{ animation: 'drawQtail 0.4s 1.0s ease forwards' }} />
       <polyline points={[[10,20],[13.5,15],[17,18],[21,12]].map(([x,y]) => `${x*k},${y*k}`).join(' ')}
