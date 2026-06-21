@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef, startTransition } from 'react'
 import { createPortal } from 'react-dom'
 import { Home, List, BarChart2, Tag, Plus, LogOut, Moon, Sun } from 'lucide-react'
-import { loadGoogleAPIs, signIn, signOut, isSignedIn, initSheet, getTransactions, getCategories, saveCategories, applyRecurrents, addRecurrent } from './services/googleSheets'
+import { loadGoogleAPIs, signIn, signOut, isSignedIn, getUserEmail, initSheet, getTransactions, getCategories, saveCategories, applyRecurrents, addRecurrent } from './services/googleSheets'
 import { DEMO_TRANSACTIONS, DEMO_CATEGORIES, DEMO_RECURRENTS } from './demoData'
 import Dashboard from './components/Dashboard'
 import AddTransaction from './components/AddTransaction'
@@ -61,8 +61,12 @@ function loadCats() {
   } catch { return DEFAULT_CATS }
 }
 
-function applyTheme(dark) {
-  document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light')
+const PINK_EMAIL = 'claravalenti07@gmail.com'
+
+function applyTheme(dark, pink) {
+  document.documentElement.setAttribute('data-theme',
+    pink ? (dark ? 'dark-pink' : 'light-pink') : (dark ? 'dark' : 'light')
+  )
 }
 
 // Animated splash logo SVG
@@ -105,14 +109,22 @@ export default function App() {
     const saved = localStorage.getItem('gastos_theme')
     return saved !== null ? saved === 'dark' : true
   })
+  const [pinkMode, setPinkMode] = useState(false)
 
-  useEffect(() => { applyTheme(darkMode) }, [darkMode])
+  useEffect(() => { applyTheme(darkMode, pinkMode) }, [darkMode, pinkMode])
 
   const toggleTheme = () => {
     const next = !darkMode
     setDarkMode(next)
     localStorage.setItem('gastos_theme', next ? 'dark' : 'light')
   }
+
+  const detectAndApplyUserTheme = useCallback(async (dark) => {
+    const email = await getUserEmail()
+    const pink = email === PINK_EMAIL
+    setPinkMode(pink)
+    applyTheme(dark ?? darkMode, pink)
+  }, [darkMode])
 
   const fetchTransactions = useCallback(async () => {
     if (!config) return
@@ -153,6 +165,7 @@ export default function App() {
       if (isSignedIn()) {
         clearTimeout(splashTimer)
         setAuthState('authed')
+        detectAndApplyUserTheme()
         fetchTransactions()
         return
       }
@@ -174,6 +187,7 @@ export default function App() {
       clearTimeout(splashTimer)
       if (ok) {
         setAuthState('authed')
+        detectAndApplyUserTheme()
         fetchTransactions()
       } else {
         setAuthState('ready') // fallback: show button
@@ -196,11 +210,12 @@ export default function App() {
   }
 
   const handleSignIn = async () => {
-    try { await signIn(); setAuthState('authed'); await fetchTransactions() }
+    try { await signIn(); setAuthState('authed'); await detectAndApplyUserTheme(); await fetchTransactions() }
     catch (e) { console.error(e) }
   }
 
   const handleSignOut = () => {
+    setPinkMode(false)
     if (demoMode) { setDemoMode(false); setAuthState('ready'); setTransactions([]); return }
     signOut(); setAuthState('ready'); setTransactions([])
   }

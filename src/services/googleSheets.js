@@ -1,6 +1,6 @@
 function parseNum(val) { return parseFloat(String(val).replace(',', '.')) || 0 }
 
-const SCOPES = 'https://www.googleapis.com/auth/spreadsheets'
+const SCOPES = 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/userinfo.email'
 const REG_SHEET = 'Registre'
 const DISCOVERY_DOC = 'https://sheets.googleapis.com/$discovery/rest?version=v4'
 
@@ -56,6 +56,18 @@ export function signOut() {
 
 export function isSignedIn() {
   return !!window.gapi?.client?.getToken()
+}
+
+export async function getUserEmail() {
+  try {
+    const token = window.gapi.client.getToken()
+    if (!token) return null
+    const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+      headers: { Authorization: `Bearer ${token.access_token}` }
+    })
+    const data = await res.json()
+    return data.email || null
+  } catch { return null }
 }
 
 const TIPO_TO_CAT = { 'gasto': 'Despesa', 'ingreso': 'Ingrés' }

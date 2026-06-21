@@ -6,15 +6,27 @@ function cssVar(name) {
 }
 import { monthName } from '../utils/dates'
 
-const COLORS_DARK  = ['#818cf8', '#34d399', '#fbbf24', '#f87171', '#22d3ee', '#c084fc', '#fb923c', '#a3e635']
-const COLORS_LIGHT = ['#6366f1', '#059669', '#d97706', '#dc2626', '#0891b2', '#9333ea', '#ea580c', '#65a30d']
+const COLORS_DARK       = ['#818cf8', '#34d399', '#fbbf24', '#f87171', '#22d3ee', '#c084fc', '#fb923c', '#a3e635']
+const COLORS_LIGHT      = ['#6366f1', '#059669', '#d97706', '#dc2626', '#0891b2', '#9333ea', '#ea580c', '#65a30d']
+const COLORS_DARK_PINK  = ['#f472b6', '#34d399', '#fbbf24', '#fb7185', '#22d3ee', '#e879a8', '#fb923c', '#a78bfa']
+const COLORS_LIGHT_PINK = ['#c8256a', '#059669', '#d97706', '#e11d48', '#0891b2', '#be185d', '#ea580c', '#7c3aed']
 
-function isLight() { return document.documentElement.getAttribute('data-theme') === 'light' }
-function getColors() { return isLight() ? COLORS_LIGHT : COLORS_DARK }
+function getTheme() { return document.documentElement.getAttribute('data-theme') || 'dark' }
+function isLight() { const t = getTheme(); return t === 'light' || t === 'light-pink' }
+function getColors() {
+  const t = getTheme()
+  if (t === 'light-pink') return COLORS_LIGHT_PINK
+  if (t === 'dark-pink')  return COLORS_DARK_PINK
+  if (t === 'light')      return COLORS_LIGHT
+  return COLORS_DARK
+}
 function barColor(name) {
-  if (name === 'ingressos') return isLight() ? '#059669' : '#22c55e'
-  if (name === 'gastos')    return isLight() ? '#dc2626' : '#ef4444'
-  return isLight() ? '#6366f1' : '#818cf8'
+  const t = getTheme()
+  const dark = t === 'dark' || t === 'dark-pink'
+  const pink = t === 'dark-pink' || t === 'light-pink'
+  if (name === 'ingressos') return dark ? '#22c55e' : '#16a34a'
+  if (name === 'gastos')    return dark ? '#ef4444' : '#dc2626'
+  return pink ? (dark ? '#e879a8' : '#c8256a') : (dark ? '#818cf8' : '#6366f1')
 }
 
 function fmt(n) {

@@ -37,6 +37,40 @@
   --tooltip-border: #cbc6ee;
 }
 
+[data-theme="dark-pink"] {
+  --bg: #13090f;
+  --bg2: #1f0e18;
+  --bg3: #2c1422;
+  --border: #3d1a2e;
+  --text1: #f8f0f5;
+  --text2: #b090a8;
+  --accent: #e879a8;
+  --accent-light: #f0a0c4;
+  --green: #22c55e;
+  --red: #ef4444;
+  --chart-grid: #3d1a2e;
+  --chart-tick: #b090a8;
+  --tooltip-bg: #1f0e18;
+  --tooltip-border: #3d1a2e;
+}
+
+[data-theme="light-pink"] {
+  --bg: #fbeef5;
+  --bg2: #fff5fa;
+  --bg3: #f5d9ea;
+  --border: #ebbdd6;
+  --text1: #2a0f1e;
+  --text2: #9a507a;
+  --accent: #c8256a;
+  --accent-light: #c8256a;
+  --green: #16a34a;
+  --red: #dc2626;
+  --chart-grid: #ebbdd6;
+  --chart-tick: #a86090;
+  --tooltip-bg: #fff5fa;
+  --tooltip-border: #ebbdd6;
+}
+
 
 html, body, #root {
   height: 100%;
@@ -127,6 +161,9 @@ html, body, #root {
 }
 [data-theme="dark"] .splash-screen {
   background: radial-gradient(ellipse at 35% 30%, #1e1e35 0%, var(--bg) 70%);
+}
+[data-theme="dark-pink"] .splash-screen {
+  background: radial-gradient(ellipse at 35% 30%, #2a0e1e 0%, var(--bg) 70%);
 }
 .splash-content {
   display: flex; flex-direction: column; align-items: center;
