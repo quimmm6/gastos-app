@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { Trash2, Pencil, X, Search } from 'lucide-react'
+import { Trash2, Pencil, X, Search, ArrowUpDown } from 'lucide-react'
 import { deleteTransaction, updateTransaction, getRecurrents, updateRecurrent, deleteRecurrent, addRecurrent } from '../services/googleSheets'
 import { fmtDate, fmtDateLong, parseImport } from '../utils/dates'
 import BottomSheet from './BottomSheet'
@@ -343,6 +343,8 @@ export default function TransactionList({ transactions, spreadsheetId, onDeleted
   const [recFilter, setRecFilter] = useState('tots')
   const [catFilter, setCatFilter] = useState('')
   const [search, setSearch] = useState('')
+  const [sortKey, setSortKey] = useState('data-desc')
+  const [showSortMenu, setShowSortMenu] = useState(false)
   const [deleting, setDeleting] = useState(null)
   const [editing, setEditing] = useState(null)
   const [recurrents, setRecurrents] = useState(demoRecurrents || [])
@@ -365,6 +367,23 @@ export default function TransactionList({ transactions, spreadsheetId, onDeleted
   const recFiltered = typeFiltered.filter(t =>
     recFilter === 'tots' || (recFilter === 'ordinaris' && !t.id.startsWith('rec-')) || (recFilter === 'recurrents' && t.id.startsWith('rec-'))
   )
+  const SORT_OPTIONS = [
+    { key: 'data-desc',   label: 'Data ↓' },
+    { key: 'data-asc',    label: 'Data ↑' },
+    { key: 'import-desc', label: 'Import ↓' },
+    { key: 'import-asc',  label: 'Import ↑' },
+    { key: 'categoria',   label: 'Categoria' },
+  ]
+  const sortTxs = (txs) => {
+    const s = [...txs]
+    if (sortKey === 'data-desc')   s.sort((a, b) => b.fecha.localeCompare(a.fecha))
+    if (sortKey === 'data-asc')    s.sort((a, b) => a.fecha.localeCompare(b.fecha))
+    if (sortKey === 'import-desc') s.sort((a, b) => b.importe - a.importe)
+    if (sortKey === 'import-asc')  s.sort((a, b) => a.importe - b.importe)
+    if (sortKey === 'categoria')   s.sort((a, b) => a.categoria.localeCompare(b.categoria, 'ca'))
+    return s
+  }
+
   const searchQ = search.trim().toLowerCase()
   const catFiltered = catFilter ? recFiltered.filter(t => t.categoria === catFilter) : recFiltered
   const filtered = searchQ
@@ -408,26 +427,44 @@ export default function TransactionList({ transactions, spreadsheetId, onDeleted
 
   return (
     <div>
-      <div style={{ position: 'relative', marginBottom: 10 }}>
-        <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text2)', pointerEvents: 'none' }} />
-        <input
-          type="search"
-          placeholder="Cerca per categoria o descripció…"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          style={{
-            width: '100%', boxSizing: 'border-box',
-            padding: '10px 12px 10px 36px',
-            background: 'var(--bg3)', border: '1px solid var(--border)',
-            borderRadius: 'var(--radius-sm)', color: 'var(--text1)', fontSize: 14,
-          }}
-        />
-        {search && (
-          <button onClick={() => setSearch('')}
-            style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text2)', cursor: 'pointer', padding: 2 }}>
-            <X size={14} />
+      <div style={{ display: 'flex', gap: 8, marginBottom: 10, alignItems: 'center' }}>
+        <div style={{ position: 'relative', flex: 1 }}>
+          <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text2)', pointerEvents: 'none' }} />
+          <input
+            type="search"
+            placeholder="Cerca per categoria o descripció…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            style={{
+              width: '100%', boxSizing: 'border-box',
+              padding: '10px 12px 10px 36px',
+              background: 'var(--bg3)', border: '1px solid var(--border)',
+              borderRadius: 'var(--radius-sm)', color: 'var(--text1)', fontSize: 14,
+            }}
+          />
+          {search && (
+            <button onClick={() => setSearch('')}
+              style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text2)', cursor: 'pointer', padding: 2 }}>
+              <X size={14} />
+            </button>
+          )}
+        </div>
+        <div style={{ position: 'relative' }}>
+          <button className="btn-icon" onClick={() => setShowSortMenu(s => !s)} title="Ordenar">
+            <ArrowUpDown size={15} />
           </button>
-        )}
+          {showSortMenu && (
+            <div style={{ position: 'absolute', top: '110%', right: 0, background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10, padding: 6, zIndex: 100, minWidth: 130, boxShadow: '0 4px 16px rgba(0,0,0,.25)' }}
+              onClick={() => setShowSortMenu(false)}>
+              {SORT_OPTIONS.map(o => (
+                <button key={o.key} onClick={() => setSortKey(o.key)}
+                  style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 12px', background: 'none', border: 'none', borderRadius: 6, fontSize: 13, cursor: 'pointer', color: sortKey === o.key ? 'var(--accent)' : 'var(--text1)', fontWeight: sortKey === o.key ? 700 : 400 }}>
+                  {o.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
       <div className="filter-grid">
         {/* Fila 1: tipus */}
@@ -493,7 +530,7 @@ export default function TransactionList({ transactions, spreadsheetId, onDeleted
         <>
           {!loading && filtered.length === 0 && <p className="empty">No hi ha transaccions.</p>}
           <div className="recent-list">
-            {filtered.map((tx) => (
+            {sortTxs(filtered).map((tx) => (
               <div key={tx.id} className="tx-item" style={tx.actiu === false ? { opacity: 0.45 } : {}}>
                 <span className="tx-icon">{catMap[tx.categoria] || '💰'}</span>
                 <div className="tx-info">
