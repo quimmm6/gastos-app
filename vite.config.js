@@ -12,7 +12,7 @@ export default defineConfig({
         name: 'FinQuim',
         short_name: 'FinQuim',
         description: 'Control de despeses i ingressos',
-        theme_color: '#6366f1',
+        theme_color: '#0f0f13',
         background_color: '#0f0f13',
         display: 'standalone',
         orientation: 'portrait',

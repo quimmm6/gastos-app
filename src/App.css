@@ -38,20 +38,20 @@
 }
 
 [data-theme="dark-pink"] {
-  --bg: #13090f;
-  --bg2: #1f0e18;
-  --bg3: #2c1422;
-  --border: #3d1a2e;
-  --text1: #f8f0f5;
-  --text2: #b090a8;
+  --bg: #0f0f13;
+  --bg2: #1a1a24;
+  --bg3: #242433;
+  --border: #2e2e42;
+  --text1: #f0f0f8;
+  --text2: #9090b0;
   --accent: #e879a8;
   --accent-light: #f472b6;
   --green: #22c55e;
   --red: #ef4444;
-  --chart-grid: #3d1a2e;
-  --chart-tick: #b090a8;
-  --tooltip-bg: #1f0e18;
-  --tooltip-border: #3d1a2e;
+  --chart-grid: #2e2e42;
+  --chart-tick: #9090b0;
+  --tooltip-bg: #1a1a24;
+  --tooltip-border: #2e2e42;
 }
 
 [data-theme="light-pink"] {
