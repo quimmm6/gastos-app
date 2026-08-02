@@ -280,17 +280,26 @@ function IngressosTab({ filteredTxs, chartMonths, period }) {
         <div className="stats-section">
           <div className="stats-title">Per categoria</div>
           {catData.length > 1 && (
-            <div style={{ width: '100%', height: 220, marginBottom: 12 }}>
+            <div style={{ width: '100%', height: 200, marginBottom: 8 }}>
               <ResponsiveContainer>
                 <PieChart>
                   <Pie data={catData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80}
-                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false} fontSize={10}
                     animationDuration={400}>
                     {catData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                   </Pie>
-                  <Tooltip formatter={(v) => fmt(v)} contentStyle={{ background: cssVar('--tooltip-bg'), border: `1px solid ${cssVar('--tooltip-border')}`, borderRadius: 8, fontSize: 12, color: cssVar('--text1') }} />
+                  <Tooltip formatter={(v, name) => [fmt(v), name]} contentStyle={{ background: cssVar('--tooltip-bg'), border: `1px solid ${cssVar('--tooltip-border')}`, borderRadius: 8, fontSize: 12, color: cssVar('--text1') }} />
                 </PieChart>
               </ResponsiveContainer>
+            </div>
+          )}
+          {catData.length > 1 && (
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap', fontSize: 12, marginBottom: 12 }}>
+              {catData.map((d, i) => (
+                <span key={d.name} style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--text2)' }}>
+                  <span style={{ width: 10, height: 10, borderRadius: 2, background: COLORS[i % COLORS.length], display: 'inline-block', flexShrink: 0 }} />
+                  {d.name} <span style={{ color: 'var(--text1)', fontWeight: 600 }}>{((d.value / catData.reduce((s, x) => s + x.value, 0)) * 100).toFixed(0)}%</span>
+                </span>
+              ))}
             </div>
           )}
           {catData.map((d, i) => (
