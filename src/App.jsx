@@ -308,23 +308,9 @@ export default function App() {
 
         {showSettings && createPortal(
           <BottomSheet onClose={() => setShowSettings(false)}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-              <h2 style={{ fontSize: 18, fontWeight: 700 }}>Configuració</h2>
-            </div>
+            <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 20 }}>Configuració</h2>
 
-            <div style={{ marginBottom: 24 }}>
-              <div className="stats-title">Categories</div>
-              <Categories
-                categories={categories}
-                onSave={demoMode ? () => {} : handleSaveCats}
-                transactions={transactions}
-                spreadsheetId={config?.spreadsheetId}
-                onReassigned={demoMode ? () => {} : onCategoryReassigned}
-                readOnly={demoMode}
-              />
-            </div>
-
-            <div className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
               <div>
                 <div style={{ fontWeight: 600, fontSize: 14 }}>Pestanya Inversions</div>
                 <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 2 }}>Mostra la gestió de fons d'inversió</div>
@@ -343,6 +329,16 @@ export default function App() {
                 </span>
               </label>
             </div>
+
+            <div className="stats-title" style={{ marginTop: 24 }}>Categories</div>
+            <Categories
+              categories={categories}
+              onSave={demoMode ? () => {} : handleSaveCats}
+              transactions={transactions}
+              spreadsheetId={config?.spreadsheetId}
+              onReassigned={demoMode ? () => {} : onCategoryReassigned}
+              readOnly={demoMode}
+            />
 
             <button className="btn-ghost" style={{ marginTop: 20, width: '100%', color: 'var(--red)', borderColor: 'var(--red)' }}
               onClick={() => { setShowSettings(false); localStorage.removeItem('gastos_config'); setConfig(null) }}>

@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import { Plus, ChevronLeft, Trash2, X, Edit2, RefreshCw } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import {
@@ -100,18 +101,20 @@ function buildChartData(funds, allEntries) {
   })
 }
 
-// ── Sheet modal ───────────────────────────────────────────────────────────
+// ── Sheet modal (portal to body so it's not clipped by app-main) ─────────
 function Sheet({ title, onClose, children }) {
-  return (
+  return createPortal(
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="modal-sheet">
+        <div className="modal-handle" />
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
           <h2 style={{ fontSize: 18, fontWeight: 700 }}>{title}</h2>
           <button className="btn-icon" onClick={onClose}><X size={20} /></button>
         </div>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 
@@ -202,8 +205,8 @@ function EntryForm({ funds, initialFundId, initial, onClose, onSave, saving }) {
         <input type="number" min="0" step="0.01" placeholder="0" value={amountAdded} onChange={e => setAmountAdded(e.target.value)} inputMode="decimal" />
       </div>
       <div className="form-group">
-        <label>Valor actual del fons (€)</label>
-        <input type="number" min="0" step="0.01" placeholder="Valor total avui" value={currentValue} onChange={e => setCurrentValue(e.target.value)} inputMode="decimal" />
+        <label>Valor del fons en la data indicada (€)</label>
+        <input type="number" min="0" step="0.01" placeholder="Valor total en aquella data" value={currentValue} onChange={e => setCurrentValue(e.target.value)} inputMode="decimal" />
       </div>
       <button className="btn-primary" disabled={!valid || saving}
         onClick={() => valid && onSave({ fundId, date, amountAdded: parseFloat(amountAdded || 0), currentValue: parseFloat(currentValue) })}>
