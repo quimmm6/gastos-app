@@ -615,7 +615,7 @@ function PortfolioView({ funds, contributions, valuations, loading, onSelectFund
             }
             lineElements={chartMode === 'individual'
               ? funds.flatMap((f, i) => [
-                <Line key={`inv_${i}`} type="monotone" dataKey={`inv_${i}`} stroke={COLORS[i % COLORS.length]} strokeWidth={1.5} strokeDasharray="5 3" dot={false} connectNulls name={`${f.name} inv.`} />,
+                <Line key={`inv_${i}`} type="monotone" dataKey={`inv_${i}`} stroke={COLORS[i % COLORS.length]} strokeWidth={1.5} strokeDasharray="5 3" dot={false} connectNulls name={`${f.name} inversions`} />,
                 <Line key={`fons_${i}`} type="monotone" dataKey={`fons_${i}`} stroke={COLORS[i % COLORS.length]} strokeWidth={2} dot={{ r: 3, fill: COLORS[i % COLORS.length] }} connectNulls name={f.name} />,
               ])
               : [
