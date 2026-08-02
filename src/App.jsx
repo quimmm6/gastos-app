@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, startTransition } from 'react'
 import { createPortal } from 'react-dom'
-import { Home, List, BarChart2, Tag, Plus, LogOut, Moon, Sun } from 'lucide-react'
+import { Home, List, BarChart2, Tag, Plus, LogOut, Moon, Sun, LayoutDashboard } from 'lucide-react'
 import { loadGoogleAPIs, signIn, signOut, isSignedIn, getUserEmail, initSheet, getTransactions, getCategories, saveCategories, applyRecurrents, addRecurrent } from './services/googleSheets'
 import { DEMO_TRANSACTIONS, DEMO_CATEGORIES, DEMO_RECURRENTS } from './demoData'
 import Dashboard from './components/Dashboard'
@@ -13,9 +13,9 @@ import Logo from './components/Logo'
 import BottomSheet from './components/BottomSheet'
 import './App.css'
 
-const TABS = ['inicio', 'lista', 'stats', 'cats']
-const TAB_ICONS = { inicio: Home, lista: List, stats: BarChart2, cats: Tag }
-const TAB_NAMES = { inicio: 'Inici', lista: 'Llista', stats: 'Stats', cats: 'Cats' }
+const TABS = ['add', 'inicio', 'lista', 'stats', 'cats']
+const TAB_ICONS = { add: Plus, inicio: LayoutDashboard, lista: List, stats: BarChart2, cats: Tag }
+const TAB_NAMES = { add: 'Afegir', inicio: 'Resum', lista: 'Llista', stats: 'Stats', cats: 'Cats' }
 
 const DEFAULT_CATS = {
   gasto: [
@@ -99,7 +99,7 @@ export default function App() {
   const [authState, setAuthState] = useState('splash') // 'splash' | 'tryAuto' | 'ready' | 'authed'
   const [transactions, setTransactions] = useState([])
   const [loading, setLoading] = useState(false)
-  const [tab, setTab] = useState('inicio')
+  const [tab, setTab] = useState('add')
   const [tabAnimKey, setTabAnimKey] = useState(0)
   const [tabSlideDir, setTabSlideDir] = useState('left')
   const [showAdd, setShowAdd] = useState(false)
@@ -250,7 +250,7 @@ export default function App() {
     return (
       <div className="app">
         <header className="app-header">
-          <button style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'none', border: 'none', color: 'var(--text1)', cursor: 'pointer', padding: 0 }} onClick={() => setTab('inicio')}>
+          <button style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'none', border: 'none', color: 'var(--text1)', cursor: 'pointer', padding: 0 }} onClick={() => setTab('add')}>
             <Logo size={42} />
             <span className="header-title" style={{ fontSize: 26, letterSpacing: '-0.5px' }}>FinQuim</span>
             {demoMode && <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)', border: '1px solid var(--accent)', borderRadius: 6, padding: '2px 6px', letterSpacing: '.05em' }}>DEMO</span>}
@@ -265,28 +265,22 @@ export default function App() {
 
         <main className="app-main" onTouchStart={onMainTouchStart} onTouchEnd={onMainTouchEnd}>
           <div key={tabAnimKey} className={`page-slide page-slide-${tabSlideDir}`}>
+            {tab === 'add' && (
+              <AddTransaction
+                spreadsheetId={demoMode ? null : config.spreadsheetId}
+                onAdded={onTransactionAdded}
+                categories={categories}
+                transactions={transactions}
+                readOnly={demoMode}
+                inline
+              />
+            )}
             {tab === 'inicio' && <Dashboard transactions={transactions} loading={loading} onRefresh={demoMode ? () => {} : fetchTransactions} categories={categories} spreadsheetId={config?.spreadsheetId} onDeleted={demoMode ? () => {} : onTransactionDeleted} onUpdated={demoMode ? () => {} : onTransactionUpdated} readOnly={demoMode} />}
             {tab === 'lista' && <TransactionList transactions={transactions} spreadsheetId={config?.spreadsheetId} onDeleted={demoMode ? () => {} : onTransactionDeleted} onUpdated={demoMode ? () => {} : onTransactionUpdated} loading={loading} categories={categories} readOnly={demoMode} demoRecurrents={demoMode ? DEMO_RECURRENTS : null} />}
             {tab === 'stats' && <Stats transactions={transactions} />}
             {tab === 'cats' && <Categories categories={categories} onSave={demoMode ? () => {} : handleSaveCats} transactions={transactions} spreadsheetId={config?.spreadsheetId} onReassigned={demoMode ? () => {} : onCategoryReassigned} readOnly={demoMode} />}
           </div>
         </main>
-
-        {!demoMode && <button className="fab" onClick={() => setShowAdd(true)} aria-label="Afegir transacció">
-          <Plus size={26} strokeWidth={2.5} />
-        </button>}
-
-        {showAdd && createPortal(
-          <BottomSheet onClose={() => setShowAdd(false)}>
-            <AddTransaction
-              spreadsheetId={config.spreadsheetId}
-              onAdded={onTransactionAdded}
-              categories={categories}
-              onCancel={() => setShowAdd(false)}
-            />
-          </BottomSheet>,
-          document.body
-        )}
 
         <nav className="bottom-nav">
           {TABS.map((t) => {

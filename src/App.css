@@ -264,6 +264,23 @@ button { cursor: pointer; }
 }
 .form-group textarea { resize: none; height: 72px; }
 
+/* ── Predictive suggestions ── */
+.suggestions-list {
+  position: absolute; top: 100%; left: 0; right: 0;
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); z-index: 30;
+  max-height: 180px; overflow-y: auto;
+  box-shadow: 0 4px 16px rgba(0,0,0,.25);
+}
+.suggestion-item {
+  display: block; width: 100%; text-align: left;
+  padding: 10px 14px; background: none; border: none;
+  color: var(--text1); font-size: 13px; cursor: pointer;
+  border-bottom: 1px solid var(--border);
+}
+.suggestion-item:last-child { border-bottom: none; }
+.suggestion-item:hover, .suggestion-item:active { background: var(--bg3); }
+
 .tipo-toggle { display: flex; gap: 8px; }
 .tipo-btn {
   flex: 1; padding: 11px; border: 2px solid var(--border);

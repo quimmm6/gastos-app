@@ -59,37 +59,48 @@ function buildMonthData(transactions, months) {
   return months.map(ym => map[ym])
 }
 
-export default function Stats({ transactions }) {
-  const now = new Date()
-  const currentYear = String(now.getFullYear())
-  const currentYM = `${currentYear}-${String(now.getMonth() + 1).padStart(2, '0')}`
-
-  const years = [...new Set(transactions.map(t => t.fecha?.slice(0, 4)).filter(Boolean))].sort().reverse()
-  if (!years.includes(currentYear)) years.unshift(currentYear)
-
-  const allYMs = [...new Set(transactions.map(t => t.fecha?.slice(0, 7)).filter(Boolean))].sort()
-
-  const [period, setPeriod] = useState('ytd')
-  const [selYear, setSelYear] = useState(currentYear)
-  const [selMonth, setSelMonth] = useState(currentYM)
-
-  let filteredTxs = transactions.filter(t => t.actiu !== false)
-  let chartMonths = []
-
-  if (period === 'any') {
-    chartMonths = Array.from({ length: 12 }, (_, i) => `${selYear}-${String(i + 1).padStart(2, '0')}`)
-    filteredTxs = transactions.filter(t => t.fecha?.startsWith(selYear))
-  } else if (period === 'ytd') {
-    const startYM = `${currentYear}-01`
-    chartMonths = allYMs.filter(ym => ym >= startYM && ym <= currentYM)
-    if (chartMonths.length === 0) {
-      chartMonths = Array.from({ length: now.getMonth() + 1 }, (_, i) => `${currentYear}-${String(i + 1).padStart(2, '0')}`)
+function buildIngressosByMonth(transactions, months, selectedCats) {
+  const map = {}
+  months.forEach(ym => {
+    const entry = { mes: ym2label(ym) }
+    selectedCats.forEach(c => { entry[c] = 0 })
+    entry._total = 0
+    map[ym] = entry
+  })
+  transactions.filter(t => t.tipo === 'ingreso').forEach(tx => {
+    const ym = tx.fecha?.slice(0, 7) || ''
+    if (!map[ym]) return
+    if (selectedCats.length === 0 || selectedCats.includes(tx.categoria)) {
+      map[ym][tx.categoria] = (map[ym][tx.categoria] || 0) + tx.importe
+      map[ym]._total += tx.importe
     }
-    filteredTxs = transactions.filter(t => t.fecha?.startsWith(currentYear))
-  } else {
-    filteredTxs = transactions.filter(t => t.fecha?.slice(0, 7) === selMonth)
-  }
+  })
+  return months.map(ym => map[ym])
+}
 
+function PeriodSelector({ period, setPeriod, selYear, setSelYear, selMonth, setSelMonth, years, allYMs }) {
+  return (
+    <div style={{ display: 'flex', gap: 6, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
+      {[['ytd', 'YTD'], ['any', 'Any'], ['mes', 'Mes']].map(([v, l]) => (
+        <button key={v} className={`filter-chip ${period === v ? 'active' : ''}`} onClick={() => setPeriod(v)}>{l}</button>
+      ))}
+      {period === 'any' && (
+        <select value={selYear} onChange={e => setSelYear(e.target.value)}
+          style={{ background: 'var(--bg3)', border: '1px solid var(--border)', color: 'var(--text1)', borderRadius: 20, padding: '5px 12px', fontSize: 12 }}>
+          {years.map(y => <option key={y} value={y}>{y}</option>)}
+        </select>
+      )}
+      {period === 'mes' && (
+        <select value={selMonth} onChange={e => setSelMonth(e.target.value)}
+          style={{ background: 'var(--bg3)', border: '1px solid var(--border)', color: 'var(--text1)', borderRadius: 20, padding: '5px 12px', fontSize: 12 }}>
+          {[...allYMs].reverse().map(ym => <option key={ym} value={ym}>{monthName(ym)}</option>)}
+        </select>
+      )}
+    </div>
+  )
+}
+
+function DespesesTab({ filteredTxs, chartMonths, period }) {
   const gastos = filteredTxs.filter(t => t.tipo === 'gasto')
   const ingresos = filteredTxs.filter(t => t.tipo === 'ingreso')
 
@@ -102,32 +113,8 @@ export default function Stats({ transactions }) {
   const totalIngresos = ingresos.reduce((s, t) => s + t.importe, 0)
   const totalGastos = gastos.reduce((s, t) => s + t.importe, 0)
 
-  if (transactions.length === 0) {
-    return <p className="empty">Afegeix transaccions per veure estadístiques.</p>
-  }
-
   return (
     <div>
-      {/* Period selector */}
-      <div style={{ display: 'flex', gap: 6, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
-        {[['ytd', 'YTD'], ['any', 'Any'], ['mes', 'Mes']].map(([v, l]) => (
-          <button key={v} className={`filter-chip ${period === v ? 'active' : ''}`} onClick={() => setPeriod(v)}>{l}</button>
-        ))}
-        {period === 'any' && (
-          <select value={selYear} onChange={e => setSelYear(e.target.value)}
-            style={{ background: 'var(--bg3)', border: '1px solid var(--border)', color: 'var(--text1)', borderRadius: 20, padding: '5px 12px', fontSize: 12 }}>
-            {years.map(y => <option key={y} value={y}>{y}</option>)}
-          </select>
-        )}
-        {period === 'mes' && (
-          <select value={selMonth} onChange={e => setSelMonth(e.target.value)}
-            style={{ background: 'var(--bg3)', border: '1px solid var(--border)', color: 'var(--text1)', borderRadius: 20, padding: '5px 12px', fontSize: 12 }}>
-            {[...allYMs].reverse().map(ym => <option key={ym} value={ym}>{monthName(ym)}</option>)}
-          </select>
-        )}
-      </div>
-
-      {/* Bar chart — monthly */}
       {monthData.length > 0 && (
         <div className="stats-section">
           <div className="stats-title">Evolució mensual</div>
@@ -155,7 +142,6 @@ export default function Stats({ transactions }) {
         </div>
       )}
 
-      {/* Pie + bars by category */}
       {catData.length > 0 && (
         <div className="stats-section">
           <div className="stats-title">Despeses per categoria</div>
@@ -211,6 +197,196 @@ export default function Stats({ transactions }) {
           ))
         })()}
       </div>
+    </div>
+  )
+}
+
+function IngressosTab({ filteredTxs, chartMonths, period }) {
+  const ingresos = filteredTxs.filter(t => t.tipo === 'ingreso')
+  const allCats = [...new Set(ingresos.map(t => t.categoria).filter(Boolean))].sort()
+  const [selectedCats, setSelectedCats] = useState([])
+
+  const activeCats = selectedCats.length > 0 ? selectedCats : allCats
+
+  const toggleCat = (cat) => {
+    setSelectedCats(prev =>
+      prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]
+    )
+  }
+
+  const byCat = groupBy(ingresos.filter(t => activeCats.includes(t.categoria)), 'categoria')
+  const catData = Object.entries(byCat).sort((a, b) => b[1] - a[1]).map(([name, value]) => ({ name, value }))
+  const maxCat = Math.max(...catData.map(d => d.value), 1)
+
+  const monthData = period !== 'mes' ? buildIngressosByMonth(filteredTxs, chartMonths, activeCats) : []
+  const total = catData.reduce((s, d) => s + d.value, 0)
+
+  const COLORS = getColors()
+
+  if (ingresos.length === 0) {
+    return <p className="empty" style={{ marginTop: 24 }}>No hi ha ingressos en aquest període.</p>
+  }
+
+  return (
+    <div>
+      {/* Category filter chips */}
+      {allCats.length > 1 && (
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 16 }}>
+          {allCats.map((cat, i) => (
+            <button
+              key={cat}
+              className={`filter-chip ${selectedCats.includes(cat) ? 'active' : ''}`}
+              style={selectedCats.includes(cat) ? { borderColor: COLORS[i % COLORS.length], color: COLORS[i % COLORS.length], background: COLORS[i % COLORS.length] + '22' } : {}}
+              onClick={() => toggleCat(cat)}
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Bar chart by month */}
+      {monthData.length > 0 && (
+        <div className="stats-section">
+          <div className="stats-title">Ingressos per mes</div>
+          <div style={{ width: '100%', height: 220 }}>
+            <ResponsiveContainer>
+              <BarChart data={monthData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke={cssVar('--chart-grid')} />
+                <XAxis dataKey="mes" tick={{ fill: cssVar('--chart-tick'), fontSize: 11 }} />
+                <YAxis tick={{ fill: cssVar('--chart-tick'), fontSize: 10 }} tickFormatter={v => `${v}€`} />
+                <Tooltip
+                  contentStyle={{ background: cssVar('--tooltip-bg'), border: `1px solid ${cssVar('--tooltip-border')}`, borderRadius: 8, fontSize: 12, color: cssVar('--text1') }}
+                  formatter={(v, name) => [fmt(v), name]}
+                />
+                {activeCats.map((cat, i) => (
+                  <Bar key={cat} dataKey={cat} stackId="ing" fill={COLORS[i % COLORS.length]} radius={i === activeCats.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]} animationDuration={400} />
+                ))}
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          {activeCats.length > 1 && (
+            <div style={{ display: 'flex', gap: 12, justifyContent: 'center', fontSize: 11, color: 'var(--text2)', marginTop: 6, flexWrap: 'wrap' }}>
+              {activeCats.map((cat, i) => (
+                <span key={cat}><span style={{ color: COLORS[i % COLORS.length] }}>■</span> {cat}</span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Pie + bar breakdown */}
+      {catData.length > 0 && (
+        <div className="stats-section">
+          <div className="stats-title">Per categoria</div>
+          {catData.length > 1 && (
+            <div style={{ width: '100%', height: 220, marginBottom: 12 }}>
+              <ResponsiveContainer>
+                <PieChart>
+                  <Pie data={catData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80}
+                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false} fontSize={10}
+                    animationDuration={400}>
+                    {catData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                  </Pie>
+                  <Tooltip formatter={(v) => fmt(v)} contentStyle={{ background: cssVar('--tooltip-bg'), border: `1px solid ${cssVar('--tooltip-border')}`, borderRadius: 8, fontSize: 12, color: cssVar('--text1') }} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+          {catData.map((d, i) => (
+            <div className="bar-row" key={d.name}>
+              <span className="bar-label">{d.name}</span>
+              <div className="bar-track">
+                <div className="bar-fill" style={{ width: `${(d.value / maxCat) * 100}%`, background: COLORS[i % COLORS.length] }} />
+              </div>
+              <span className="bar-value">{fmt(d.value)}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="card">
+        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', fontSize: 14 }}>
+          <span style={{ color: 'var(--text2)' }}>Total ingressos</span>
+          <span style={{ fontWeight: 700, color: 'var(--green)' }}>{fmt(total)}</span>
+        </div>
+        {period !== 'mes' && chartMonths.length > 0 && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderTop: '1px solid var(--border)', fontSize: 14 }}>
+            <span style={{ color: 'var(--text2)' }}>Mitjana/mes</span>
+            <span style={{ fontWeight: 600, color: 'var(--text1)' }}>{fmt(total / Math.max(chartMonths.length, 1))}</span>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+export default function Stats({ transactions }) {
+  const now = new Date()
+  const currentYear = String(now.getFullYear())
+  const currentYM = `${currentYear}-${String(now.getMonth() + 1).padStart(2, '0')}`
+
+  const years = [...new Set(transactions.map(t => t.fecha?.slice(0, 4)).filter(Boolean))].sort().reverse()
+  if (!years.includes(currentYear)) years.unshift(currentYear)
+
+  const allYMs = [...new Set(transactions.map(t => t.fecha?.slice(0, 7)).filter(Boolean))].sort()
+
+  const [period, setPeriod] = useState('ytd')
+  const [selYear, setSelYear] = useState(currentYear)
+  const [selMonth, setSelMonth] = useState(currentYM)
+  const [subTab, setSubTab] = useState('despeses')
+
+  let filteredTxs = transactions.filter(t => t.actiu !== false)
+  let chartMonths = []
+
+  if (period === 'any') {
+    chartMonths = Array.from({ length: 12 }, (_, i) => `${selYear}-${String(i + 1).padStart(2, '0')}`)
+    filteredTxs = transactions.filter(t => t.fecha?.startsWith(selYear))
+  } else if (period === 'ytd') {
+    const startYM = `${currentYear}-01`
+    chartMonths = allYMs.filter(ym => ym >= startYM && ym <= currentYM)
+    if (chartMonths.length === 0) {
+      chartMonths = Array.from({ length: now.getMonth() + 1 }, (_, i) => `${currentYear}-${String(i + 1).padStart(2, '0')}`)
+    }
+    filteredTxs = transactions.filter(t => t.fecha?.startsWith(currentYear))
+  } else {
+    filteredTxs = transactions.filter(t => t.fecha?.slice(0, 7) === selMonth)
+  }
+
+  if (transactions.length === 0) {
+    return <p className="empty">Afegeix transaccions per veure estadístiques.</p>
+  }
+
+  return (
+    <div>
+      <PeriodSelector
+        period={period} setPeriod={setPeriod}
+        selYear={selYear} setSelYear={setSelYear}
+        selMonth={selMonth} setSelMonth={setSelMonth}
+        years={years} allYMs={allYMs}
+      />
+
+      {/* Sub-tabs */}
+      <div style={{ display: 'flex', gap: 0, marginBottom: 20, background: 'var(--bg3)', borderRadius: 10, padding: 3 }}>
+        {[['despeses', 'Despeses'], ['ingressos', 'Ingressos']].map(([v, l]) => (
+          <button
+            key={v}
+            onClick={() => setSubTab(v)}
+            style={{
+              flex: 1, padding: '8px 0', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+              background: subTab === v ? 'var(--bg2)' : 'transparent',
+              color: subTab === v ? 'var(--text1)' : 'var(--text2)',
+              boxShadow: subTab === v ? '0 1px 4px rgba(0,0,0,.18)' : 'none',
+              transition: 'all .15s',
+            }}
+          >
+            {l}
+          </button>
+        ))}
+      </div>
+
+      {subTab === 'despeses' && <DespesesTab filteredTxs={filteredTxs} chartMonths={chartMonths} period={period} />}
+      {subTab === 'ingressos' && <IngressosTab filteredTxs={filteredTxs} chartMonths={chartMonths} period={period} />}
     </div>
   )
 }
