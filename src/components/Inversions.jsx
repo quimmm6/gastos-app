@@ -1,15 +1,9 @@
-import { useState, useMemo } from 'react'
-import { Plus, ChevronLeft, Trash2, X, Edit2 } from 'lucide-react'
+import { useState, useEffect, useMemo } from 'react'
+import { Plus, ChevronLeft, Trash2, X, Edit2, RefreshCw } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+import { getFunds, addFund, updateFund, deleteFund, getInvEntries, addInvEntry, deleteInvEntry } from '../services/googleSheets'
 
 function cssVar(n) { return getComputedStyle(document.documentElement).getPropertyValue(n).trim() }
-
-// ── Storage ──────────────────────────────────────────────────────────────
-function loadFunds() { try { return JSON.parse(localStorage.getItem('gastos_funds') || '[]') } catch { return [] } }
-function saveFunds(f) { localStorage.setItem('gastos_funds', JSON.stringify(f)) }
-function loadEntries() { try { return JSON.parse(localStorage.getItem('gastos_fund_entries') || '[]') } catch { return [] } }
-function saveEntries(e) { localStorage.setItem('gastos_fund_entries', JSON.stringify(e)) }
-function genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2) }
 
 // ── Formatting ────────────────────────────────────────────────────────────
 function fmt(n) { return new Intl.NumberFormat('ca-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n) }
@@ -35,7 +29,6 @@ function calcFundMetrics(fund, allEntries) {
   const gain = currentValue - totalInvested
   const gainPct = totalInvested > 0 ? (gain / totalInvested) * 100 : 0
 
-  // YTD: base = valor final any anterior + aportacions any actual
   const prevYearEs = es.filter(e => e.date.slice(0, 4) < curYear)
   const prevYearVal = prevYearEs.length ? prevYearEs[prevYearEs.length - 1].currentValue : 0
   const thisYearAdded = es.filter(e => e.date.slice(0, 4) === curYear).reduce((s, e) => s + e.amountAdded, 0)
@@ -43,7 +36,6 @@ function calcFundMetrics(fund, allEntries) {
   const ytdGain = ytdBase > 0 ? currentValue - ytdBase : 0
   const ytdPct = ytdBase > 0 ? (ytdGain / ytdBase) * 100 : null
 
-  // Mensual: base = valor mes anterior + aportació mes actual
   const prevMonthEs = es.filter(e => e.date.slice(0, 7) < curYM)
   const prevMonthVal = prevMonthEs.length ? prevMonthEs[prevMonthEs.length - 1].currentValue : 0
   const thisMonthAdded = es.filter(e => e.date.slice(0, 7) === curYM).reduce((s, e) => s + e.amountAdded, 0)
@@ -70,7 +62,6 @@ function calcPortfolioMetrics(funds, allEntries) {
   return { totalInvested, currentValue, gain, gainPct, ytdGain, ytdPct, monthGain, monthPct }
 }
 
-// Build timeline chart data carrying forward last known value
 function buildChartData(funds, allEntries) {
   if (!funds.length || !allEntries.length) return []
   const allYMs = [...new Set(allEntries.map(e => e.date.slice(0, 7)))].sort()
@@ -87,7 +78,7 @@ function buildChartData(funds, allEntries) {
   })
 }
 
-// ── Small components ───────────────────────────────────────────────────────
+// ── UI helpers ────────────────────────────────────────────────────────────
 function MCard({ label, value, sub, subColor }) {
   return (
     <div className="card" style={{ padding: '12px 14px', flex: '1 1 140px' }}>
@@ -115,11 +106,9 @@ function Modal({ title, onClose, children }) {
   )
 }
 
-// ── Add/Edit Fund modal ────────────────────────────────────────────────────
-function AddFundModal({ onClose, onSave, initial }) {
+function AddFundModal({ onClose, onSave, initial, saving }) {
   const [name, setName] = useState(initial?.name || '')
   const [isin, setIsin] = useState(initial?.isin || '')
-  const valid = name.trim()
   return (
     <Modal title={initial ? 'Editar fons' : 'Nou fons'} onClose={onClose}>
       <div className="form-group">
@@ -130,21 +119,20 @@ function AddFundModal({ onClose, onSave, initial }) {
         <label>ISIN (opcional)</label>
         <input value={isin} onChange={e => setIsin(e.target.value.toUpperCase())} placeholder="Ex: IE00B3XXRP09" maxLength={12} style={{ fontFamily: 'monospace', letterSpacing: 1 }} />
       </div>
-      <button className="btn-primary" disabled={!valid} onClick={() => { if (valid) onSave({ name: name.trim(), isin: isin.trim() }) }}>
-        {initial ? 'Desar canvis' : 'Crear fons'}
+      <button className="btn-primary" disabled={!name.trim() || saving}
+        onClick={() => name.trim() && onSave({ name: name.trim(), isin: isin.trim() })}>
+        {saving ? 'Desant…' : initial ? 'Desar canvis' : 'Crear fons'}
       </button>
     </Modal>
   )
 }
 
-// ── Add Entry modal ────────────────────────────────────────────────────────
-function AddEntryModal({ funds, initialFundId, onClose, onSave }) {
+function AddEntryModal({ funds, initialFundId, onClose, onSave, saving }) {
   const [fundId, setFundId] = useState(initialFundId || (funds[0]?.id || ''))
   const [date, setDate] = useState(todayStr())
   const [amountAdded, setAmountAdded] = useState('')
   const [currentValue, setCurrentValue] = useState('')
   const valid = fundId && date && currentValue !== ''
-
   return (
     <Modal title="Afegir entrada" onClose={onClose}>
       <div className="form-group">
@@ -165,19 +153,19 @@ function AddEntryModal({ funds, initialFundId, onClose, onSave }) {
         <label>Valor actual del fons (€)</label>
         <input type="number" min="0" step="0.01" placeholder="Valor total avui" value={currentValue} onChange={e => setCurrentValue(e.target.value)} inputMode="decimal" />
       </div>
-      <button className="btn-primary" disabled={!valid}
+      <button className="btn-primary" disabled={!valid || saving}
         onClick={() => valid && onSave({ fundId, date, amountAdded: parseFloat(amountAdded || 0), currentValue: parseFloat(currentValue) })}>
-        Desar entrada
+        {saving ? 'Desant…' : 'Desar entrada'}
       </button>
     </Modal>
   )
 }
 
-// ── Fund Detail view ───────────────────────────────────────────────────────
-function FundDetail({ fund, entries, onBack, onAddEntry, onDeleteEntry, onEditFund, onDeleteFund }) {
+// ── Fund detail ───────────────────────────────────────────────────────────
+function FundDetail({ fund, entries, onBack, onAddEntry, onDeleteEntry, onEditFund, onDeleteFund, colorIdx }) {
   const metrics = calcFundMetrics(fund, entries)
   const chartData = buildChartData([fund], entries)
-  const color = COLORS[0]
+  const color = COLORS[colorIdx % COLORS.length]
 
   return (
     <div>
@@ -193,7 +181,7 @@ function FundDetail({ fund, entries, onBack, onAddEntry, onDeleteEntry, onEditFu
 
       {metrics ? (
         <>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
             <MCard label="Valor actual" value={fmt2(metrics.currentValue)} />
             <MCard label="Total invertit" value={fmt(metrics.totalInvested)} />
           </div>
@@ -202,7 +190,6 @@ function FundDetail({ fund, entries, onBack, onAddEntry, onDeleteEntry, onEditFu
             {metrics.ytdPct !== null && <MCard label="YTD" value={fmt2(metrics.ytdGain)} sub={fmtPct(metrics.ytdPct)} subColor={pctColor(metrics.ytdPct)} />}
             {metrics.monthPct !== null && <MCard label="Aquest mes" value={fmt2(metrics.monthGain)} sub={fmtPct(metrics.monthPct)} subColor={pctColor(metrics.monthPct)} />}
           </div>
-
           {chartData.length > 1 && (
             <div className="stats-section">
               <div className="stats-title">Evolució</div>
@@ -212,8 +199,7 @@ function FundDetail({ fund, entries, onBack, onAddEntry, onDeleteEntry, onEditFu
                     <CartesianGrid strokeDasharray="3 3" stroke={cssVar('--chart-grid')} />
                     <XAxis dataKey="mes" tick={{ fill: cssVar('--chart-tick'), fontSize: 11 }} />
                     <YAxis tick={{ fill: cssVar('--chart-tick'), fontSize: 10 }} tickFormatter={v => `${v}€`} />
-                    <Tooltip contentStyle={{ background: cssVar('--tooltip-bg'), border: `1px solid ${cssVar('--tooltip-border')}`, borderRadius: 8, fontSize: 12, color: cssVar('--text1') }}
-                      formatter={v => [fmt2(v)]} />
+                    <Tooltip contentStyle={{ background: cssVar('--tooltip-bg'), border: `1px solid ${cssVar('--tooltip-border')}`, borderRadius: 8, fontSize: 12, color: cssVar('--text1') }} formatter={v => [fmt2(v)]} />
                     <Line type="monotone" dataKey={fund.id} stroke={color} strokeWidth={2} dot={{ r: 3, fill: color }} name={fund.name} connectNulls />
                   </LineChart>
                 </ResponsiveContainer>
@@ -238,34 +224,33 @@ function FundDetail({ fund, entries, onBack, onAddEntry, onDeleteEntry, onEditFu
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{ fontSize: 15, fontWeight: 700 }}>{fmt2(e.currentValue)}</div>
-            <button className="btn-icon" style={{ color: 'var(--text2)' }} onClick={() => onDeleteEntry(e.id)}>
-              <Trash2 size={14} />
-            </button>
+            <button className="btn-icon" style={{ color: 'var(--text2)' }} onClick={() => onDeleteEntry(e.id)}><Trash2 size={14} /></button>
           </div>
         </div>
       ))}
 
-      {(!metrics || !metrics.sortedEntries.length) && (
+      {!metrics && (
         <div style={{ textAlign: 'center', marginTop: 24 }}>
-          <button className="btn-primary" onClick={onAddEntry}>
-            <Plus size={16} style={{ marginRight: 6 }} />Afegir primera entrada
-          </button>
+          <button className="btn-primary" onClick={onAddEntry}><Plus size={16} style={{ marginRight: 6 }} />Afegir primera entrada</button>
         </div>
       )}
     </div>
   )
 }
 
-// ── Portfolio (main) view ──────────────────────────────────────────────────
-function PortfolioView({ funds, entries, onSelectFund, onAddFund, onAddEntry }) {
+// ── Portfolio view ────────────────────────────────────────────────────────
+function PortfolioView({ funds, entries, loading, onSelectFund, onAddFund, onAddEntry, onRefresh }) {
   const portfolio = calcPortfolioMetrics(funds, entries)
   const chartData = useMemo(() => buildChartData(funds, entries), [funds, entries])
-  const hasFunds = funds.length > 0
-  const hasEntries = entries.length > 0
 
   return (
     <div>
-      {/* Portfolio summary */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+        <button className="btn-icon" onClick={onRefresh} title="Actualitzar">
+          <RefreshCw size={16} className={loading ? 'spin' : ''} />
+        </button>
+      </div>
+
       {portfolio && (
         <>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
@@ -280,7 +265,6 @@ function PortfolioView({ funds, entries, onSelectFund, onAddFund, onAddEntry }) 
         </>
       )}
 
-      {/* Line chart */}
       {chartData.length > 1 && (
         <div className="stats-section">
           <div className="stats-title">Evolució cartera</div>
@@ -291,11 +275,8 @@ function PortfolioView({ funds, entries, onSelectFund, onAddFund, onAddEntry }) 
                 <XAxis dataKey="mes" tick={{ fill: cssVar('--chart-tick'), fontSize: 11 }} />
                 <YAxis tick={{ fill: cssVar('--chart-tick'), fontSize: 10 }} tickFormatter={v => `${v}€`} />
                 <Tooltip contentStyle={{ background: cssVar('--tooltip-bg'), border: `1px solid ${cssVar('--tooltip-border')}`, borderRadius: 8, fontSize: 12, color: cssVar('--text1') }}
-                  formatter={(v, name) => [fmt2(v), name]}
-                />
-                {funds.length > 1 && (
-                  <Line type="monotone" dataKey="_total" stroke="#ffffff" strokeWidth={2} strokeDasharray="4 2" dot={false} name="Total" connectNulls />
-                )}
+                  formatter={(v, name) => [fmt2(v), name]} />
+                {funds.length > 1 && <Line type="monotone" dataKey="_total" stroke="var(--text2)" strokeWidth={2} strokeDasharray="4 2" dot={false} name="Total" connectNulls />}
                 {funds.map((f, i) => (
                   <Line key={f.id} type="monotone" dataKey={f.id} stroke={COLORS[i % COLORS.length]} strokeWidth={2}
                     dot={{ r: 3, fill: COLORS[i % COLORS.length] }} name={f.name} connectNulls />
@@ -303,22 +284,17 @@ function PortfolioView({ funds, entries, onSelectFund, onAddFund, onAddEntry }) 
               </LineChart>
             </ResponsiveContainer>
           </div>
-          {funds.length > 0 && (
-            <div style={{ display: 'flex', gap: 12, justifyContent: 'center', fontSize: 11, color: 'var(--text2)', marginTop: 6, flexWrap: 'wrap' }}>
-              {funds.length > 1 && <span><span style={{ color: '#ffffff' }}>- -</span> Total</span>}
-              {funds.map((f, i) => (
-                <span key={f.id}><span style={{ color: COLORS[i % COLORS.length] }}>■</span> {f.name}</span>
-              ))}
-            </div>
-          )}
+          <div style={{ display: 'flex', gap: 12, justifyContent: 'center', fontSize: 11, color: 'var(--text2)', marginTop: 6, flexWrap: 'wrap' }}>
+            {funds.length > 1 && <span><span style={{ color: 'var(--text2)' }}>- -</span> Total</span>}
+            {funds.map((f, i) => <span key={f.id}><span style={{ color: COLORS[i % COLORS.length] }}>■</span> {f.name}</span>)}
+          </div>
         </div>
       )}
 
-      {/* Fund list */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
         <div className="stats-title" style={{ margin: 0 }}>Els meus fons</div>
         <div style={{ display: 'flex', gap: 6 }}>
-          {hasFunds && (
+          {funds.length > 0 && (
             <button className="btn-ghost small" onClick={onAddEntry} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12 }}>
               <Plus size={14} /> Entrada
             </button>
@@ -329,10 +305,12 @@ function PortfolioView({ funds, entries, onSelectFund, onAddFund, onAddEntry }) 
         </div>
       </div>
 
-      {!hasFunds && (
+      {loading && !funds.length && <p className="empty">Carregant…</p>}
+
+      {!loading && !funds.length && (
         <div style={{ textAlign: 'center', padding: '40px 20px' }}>
           <div style={{ fontSize: 40, marginBottom: 12 }}>📈</div>
-          <div style={{ color: 'var(--text2)', marginBottom: 20, fontSize: 14 }}>Afegeix el teu primer fons per començar a seguir les inversions</div>
+          <div style={{ color: 'var(--text2)', marginBottom: 20, fontSize: 14 }}>Afegeix el teu primer fons d'inversió</div>
           <button className="btn-primary" onClick={onAddFund}><Plus size={16} style={{ marginRight: 6 }} />Afegir fons</button>
         </div>
       )}
@@ -340,7 +318,7 @@ function PortfolioView({ funds, entries, onSelectFund, onAddFund, onAddEntry }) 
       {funds.map((f, i) => {
         const m = calcFundMetrics(f, entries)
         return (
-          <div key={f.id} className="card" style={{ marginBottom: 10, cursor: 'pointer' }} onClick={() => onSelectFund(f.id)}>
+          <div key={f.id} className="card" style={{ marginBottom: 10, cursor: 'pointer' }} onClick={() => onSelectFund(f.id, i)}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
@@ -349,13 +327,12 @@ function PortfolioView({ funds, entries, onSelectFund, onAddFund, onAddEntry }) 
                 </div>
                 {f.isin && <div style={{ fontSize: 11, color: 'var(--text2)', fontFamily: 'monospace', marginLeft: 18 }}>{f.isin}</div>}
               </div>
-              {m && (
+              {m ? (
                 <div style={{ textAlign: 'right' }}>
                   <div style={{ fontWeight: 700, fontSize: 15 }}>{fmt2(m.currentValue)}</div>
                   <div style={{ fontSize: 12, color: pctColor(m.gainPct) }}>{fmtPct(m.gainPct)}</div>
                 </div>
-              )}
-              {!m && <div style={{ fontSize: 12, color: 'var(--text2)' }}>Sense dades</div>}
+              ) : <div style={{ fontSize: 12, color: 'var(--text2)' }}>Sense dades</div>}
             </div>
             {m && (
               <div style={{ display: 'flex', gap: 16, marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)', fontSize: 12, color: 'var(--text2)' }}>
@@ -371,11 +348,14 @@ function PortfolioView({ funds, entries, onSelectFund, onAddFund, onAddEntry }) 
   )
 }
 
-// ── Root component ────────────────────────────────────────────────────────
-export default function Inversions() {
-  const [funds, setFunds] = useState(loadFunds)
-  const [entries, setEntries] = useState(loadEntries)
+// ── Root ──────────────────────────────────────────────────────────────────
+export default function Inversions({ spreadsheetId }) {
+  const [funds, setFunds] = useState([])
+  const [entries, setEntries] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
   const [selectedFundId, setSelectedFundId] = useState(null)
+  const [selectedFundIdx, setSelectedFundIdx] = useState(0)
   const [showAddFund, setShowAddFund] = useState(false)
   const [editingFund, setEditingFund] = useState(null)
   const [showAddEntry, setShowAddEntry] = useState(false)
@@ -383,29 +363,60 @@ export default function Inversions() {
 
   const selectedFund = funds.find(f => f.id === selectedFundId) || null
 
-  const updateFunds = (next) => { setFunds(next); saveFunds(next) }
-  const updateEntries = (next) => { setEntries(next); saveEntries(next) }
+  const fetchData = async () => {
+    setLoading(true)
+    try {
+      const [f, e] = await Promise.all([getFunds(spreadsheetId), getInvEntries(spreadsheetId)])
+      setFunds(f); setEntries(e)
+    } catch (err) { console.error(err) }
+    finally { setLoading(false) }
+  }
 
-  const handleAddFund = ({ name, isin }) => {
-    updateFunds([...funds, { id: genId(), name, isin }])
-    setShowAddFund(false)
+  useEffect(() => { if (spreadsheetId) fetchData() }, [spreadsheetId])
+
+  const handleAddFund = async ({ name, isin }) => {
+    setSaving(true)
+    try { const f = await addFund(spreadsheetId, { name, isin }); setFunds(prev => [...prev, f]) }
+    catch (err) { console.error(err) }
+    finally { setSaving(false); setShowAddFund(false) }
   }
-  const handleEditFund = ({ name, isin }) => {
-    updateFunds(funds.map(f => f.id === editingFund.id ? { ...f, name, isin } : f))
-    setEditingFund(null)
+
+  const handleEditFund = async ({ name, isin }) => {
+    setSaving(true)
+    try {
+      const updated = { ...editingFund, name, isin }
+      await updateFund(spreadsheetId, updated)
+      setFunds(prev => prev.map(f => f.id === updated.id ? updated : f))
+    } catch (err) { console.error(err) }
+    finally { setSaving(false); setEditingFund(null) }
   }
-  const handleDeleteFund = (id) => {
+
+  const handleDeleteFund = async (id) => {
     if (!window.confirm('Eliminar el fons i totes les seves entrades?')) return
-    updateFunds(funds.filter(f => f.id !== id))
-    updateEntries(entries.filter(e => e.fundId !== id))
-    setSelectedFundId(null)
+    try {
+      await deleteFund(spreadsheetId, id)
+      const fundEntries = entries.filter(e => e.fundId === id)
+      await Promise.all(fundEntries.map(e => deleteInvEntry(spreadsheetId, e.id)))
+      setFunds(prev => prev.filter(f => f.id !== id))
+      setEntries(prev => prev.filter(e => e.fundId !== id))
+      setSelectedFundId(null)
+    } catch (err) { console.error(err) }
   }
-  const handleAddEntry = ({ fundId, date, amountAdded, currentValue }) => {
-    updateEntries([...entries, { id: genId(), fundId, date, amountAdded, currentValue }])
-    setShowAddEntry(false)
+
+  const handleAddEntry = async ({ fundId, date, amountAdded, currentValue }) => {
+    setSaving(true)
+    try {
+      const e = await addInvEntry(spreadsheetId, { fundId, date, amountAdded, currentValue })
+      setEntries(prev => [...prev, e])
+    } catch (err) { console.error(err) }
+    finally { setSaving(false); setShowAddEntry(false) }
   }
-  const handleDeleteEntry = (id) => {
-    updateEntries(entries.filter(e => e.id !== id))
+
+  const handleDeleteEntry = async (id) => {
+    try {
+      await deleteInvEntry(spreadsheetId, id)
+      setEntries(prev => prev.filter(e => e.id !== id))
+    } catch (err) { console.error(err) }
   }
 
   return (
@@ -414,6 +425,7 @@ export default function Inversions() {
         <FundDetail
           fund={selectedFund}
           entries={entries}
+          colorIdx={selectedFundIdx}
           onBack={() => setSelectedFundId(null)}
           onAddEntry={() => { setAddEntryFundId(selectedFund.id); setShowAddEntry(true) }}
           onDeleteEntry={handleDeleteEntry}
@@ -424,21 +436,18 @@ export default function Inversions() {
         <PortfolioView
           funds={funds}
           entries={entries}
-          onSelectFund={setSelectedFundId}
+          loading={loading}
+          onSelectFund={(id, idx) => { setSelectedFundId(id); setSelectedFundIdx(idx) }}
           onAddFund={() => setShowAddFund(true)}
           onAddEntry={() => { setAddEntryFundId(null); setShowAddEntry(true) }}
+          onRefresh={fetchData}
         />
       )}
 
-      {showAddFund && <AddFundModal onClose={() => setShowAddFund(false)} onSave={handleAddFund} />}
-      {editingFund && <AddFundModal onClose={() => setEditingFund(null)} onSave={handleEditFund} initial={editingFund} />}
+      {showAddFund && <AddFundModal onClose={() => setShowAddFund(false)} onSave={handleAddFund} saving={saving} />}
+      {editingFund && <AddFundModal onClose={() => setEditingFund(null)} onSave={handleEditFund} initial={editingFund} saving={saving} />}
       {showAddEntry && funds.length > 0 && (
-        <AddEntryModal
-          funds={funds}
-          initialFundId={addEntryFundId}
-          onClose={() => setShowAddEntry(false)}
-          onSave={handleAddEntry}
-        />
+        <AddEntryModal funds={funds} initialFundId={addEntryFundId} onClose={() => setShowAddEntry(false)} onSave={handleAddEntry} saving={saving} />
       )}
     </div>
   )

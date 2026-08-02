@@ -372,3 +372,107 @@ export async function addRecurrent(spreadsheetId, rec) {
     resource: { values: [[rec.dia, rec.inici, rec.importe, TIPO_TO_CAT[rec.tipo] || 'Despesa', rec.categoria, rec.descripcion, 'TRUE']] },
   })
 }
+
+// ── Inversions ────────────────────────────────────────────────────────────
+const FUNDS_SHEET = 'Fons'
+const ENTRIES_SHEET = 'EntFons'
+
+async function ensureSheet(spreadsheetId, title, headers) {
+  const meta = await window.gapi.client.sheets.spreadsheets.get({ spreadsheetId })
+  const exists = meta.result.sheets.some(s => s.properties.title === title)
+  if (!exists) {
+    await window.gapi.client.sheets.spreadsheets.batchUpdate({
+      spreadsheetId,
+      resource: { requests: [{ addSheet: { properties: { title } } }] },
+    })
+    await window.gapi.client.sheets.spreadsheets.values.update({
+      spreadsheetId,
+      range: `${title}!A1`,
+      valueInputOption: 'RAW',
+      resource: { values: [headers] },
+    })
+  }
+}
+
+async function getSheetId(spreadsheetId, title) {
+  const meta = await window.gapi.client.sheets.spreadsheets.get({ spreadsheetId })
+  return meta.result.sheets.find(s => s.properties.title === title)?.properties.sheetId
+}
+
+async function deleteRowById(spreadsheetId, sheetTitle, idCol, id) {
+  const res = await window.gapi.client.sheets.spreadsheets.values.get({
+    spreadsheetId, range: `${sheetTitle}!${idCol}:${idCol}`,
+  })
+  const rows = res.result.values || []
+  const rowIndex = rows.findIndex(r => r[0] === id)
+  if (rowIndex < 1) return
+  const sheetId = await getSheetId(spreadsheetId, sheetTitle)
+  await window.gapi.client.sheets.spreadsheets.batchUpdate({
+    spreadsheetId,
+    resource: { requests: [{ deleteDimension: { range: { sheetId, dimension: 'ROWS', startIndex: rowIndex, endIndex: rowIndex + 1 } } }] },
+  })
+}
+
+export async function getFunds(spreadsheetId) {
+  try {
+    await ensureSheet(spreadsheetId, FUNDS_SHEET, ['ID', 'Nom', 'ISIN'])
+    const res = await window.gapi.client.sheets.spreadsheets.values.get({
+      spreadsheetId, range: `${FUNDS_SHEET}!A2:C`,
+    })
+    return (res.result.values || []).map(r => ({ id: r[0] || '', name: r[1] || '', isin: r[2] || '' })).filter(f => f.id)
+  } catch { return [] }
+}
+
+export async function addFund(spreadsheetId, fund) {
+  await ensureSheet(spreadsheetId, FUNDS_SHEET, ['ID', 'Nom', 'ISIN'])
+  const id = Date.now().toString(36) + Math.random().toString(36).slice(2)
+  await window.gapi.client.sheets.spreadsheets.values.append({
+    spreadsheetId, range: `${FUNDS_SHEET}!A:C`, valueInputOption: 'RAW',
+    resource: { values: [[id, fund.name, fund.isin || '']] },
+  })
+  return { ...fund, id }
+}
+
+export async function updateFund(spreadsheetId, fund) {
+  const res = await window.gapi.client.sheets.spreadsheets.values.get({
+    spreadsheetId, range: `${FUNDS_SHEET}!A:A`,
+  })
+  const rows = res.result.values || []
+  const rowIndex = rows.findIndex(r => r[0] === fund.id)
+  if (rowIndex < 1) return
+  await window.gapi.client.sheets.spreadsheets.values.update({
+    spreadsheetId, range: `${FUNDS_SHEET}!A${rowIndex + 1}:C${rowIndex + 1}`,
+    valueInputOption: 'RAW', resource: { values: [[fund.id, fund.name, fund.isin || '']] },
+  })
+}
+
+export async function deleteFund(spreadsheetId, id) {
+  await deleteRowById(spreadsheetId, FUNDS_SHEET, 'A', id)
+}
+
+export async function getInvEntries(spreadsheetId) {
+  try {
+    await ensureSheet(spreadsheetId, ENTRIES_SHEET, ['ID', 'FonsID', 'Data', 'Aportació', 'ValorActual'])
+    const res = await window.gapi.client.sheets.spreadsheets.values.get({
+      spreadsheetId, range: `${ENTRIES_SHEET}!A2:E`,
+    })
+    return (res.result.values || []).map(r => ({
+      id: r[0] || '', fundId: r[1] || '', date: r[2] || '',
+      amountAdded: parseNum(r[3]), currentValue: parseNum(r[4]),
+    })).filter(e => e.id && e.fundId)
+  } catch { return [] }
+}
+
+export async function addInvEntry(spreadsheetId, entry) {
+  await ensureSheet(spreadsheetId, ENTRIES_SHEET, ['ID', 'FonsID', 'Data', 'Aportació', 'ValorActual'])
+  const id = Date.now().toString(36) + Math.random().toString(36).slice(2)
+  await window.gapi.client.sheets.spreadsheets.values.append({
+    spreadsheetId, range: `${ENTRIES_SHEET}!A:E`, valueInputOption: 'RAW',
+    resource: { values: [[id, entry.fundId, entry.date, entry.amountAdded, entry.currentValue]] },
+  })
+  return { ...entry, id }
+}
+
+export async function deleteInvEntry(spreadsheetId, id) {
+  await deleteRowById(spreadsheetId, ENTRIES_SHEET, 'A', id)
+}

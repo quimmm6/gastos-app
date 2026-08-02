@@ -279,7 +279,7 @@ export default function App() {
             {tab === 'inicio' && <Dashboard transactions={transactions} loading={loading} onRefresh={demoMode ? () => {} : fetchTransactions} categories={categories} spreadsheetId={config?.spreadsheetId} onDeleted={demoMode ? () => {} : onTransactionDeleted} onUpdated={demoMode ? () => {} : onTransactionUpdated} readOnly={demoMode} />}
             {tab === 'lista' && <TransactionList transactions={transactions} spreadsheetId={config?.spreadsheetId} onDeleted={demoMode ? () => {} : onTransactionDeleted} onUpdated={demoMode ? () => {} : onTransactionUpdated} loading={loading} categories={categories} readOnly={demoMode} demoRecurrents={demoMode ? DEMO_RECURRENTS : null} />}
             {tab === 'stats' && <Stats transactions={transactions} />}
-            {tab === 'inv' && <Inversions />}
+            {tab === 'inv' && <Inversions spreadsheetId={config?.spreadsheetId} />}
             {tab === 'cats' && <Categories categories={categories} onSave={demoMode ? () => {} : handleSaveCats} transactions={transactions} spreadsheetId={config?.spreadsheetId} onReassigned={demoMode ? () => {} : onCategoryReassigned} readOnly={demoMode} />}
           </div>
         </main>
