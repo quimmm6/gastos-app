@@ -256,8 +256,25 @@ function IngressosTab({ filteredTxs, chartMonths, period }) {
                 <XAxis dataKey="mes" tick={{ fill: cssVar('--chart-tick'), fontSize: 11 }} />
                 <YAxis tick={{ fill: cssVar('--chart-tick'), fontSize: 10 }} tickFormatter={v => `${v}€`} />
                 <Tooltip
-                  contentStyle={{ background: cssVar('--tooltip-bg'), border: `1px solid ${cssVar('--tooltip-border')}`, borderRadius: 8, fontSize: 12, color: cssVar('--text1') }}
-                  formatter={(v, name) => [fmt(v), name]}
+                  content={({ active, payload, label }) => {
+                    if (!active || !payload?.length) return null
+                    const total = payload.reduce((s, p) => s + (p.value || 0), 0)
+                    return (
+                      <div style={{ background: cssVar('--tooltip-bg'), border: `1px solid ${cssVar('--tooltip-border')}`, borderRadius: 8, fontSize: 12, color: cssVar('--text1'), padding: '8px 12px' }}>
+                        <div style={{ fontWeight: 700, marginBottom: 6 }}>{label}</div>
+                        {payload.map(p => (
+                          <div key={p.dataKey} style={{ display: 'flex', justifyContent: 'space-between', gap: 16, color: p.fill }}>
+                            <span>{p.dataKey}</span><span>{fmt(p.value)}</span>
+                          </div>
+                        ))}
+                        {payload.length > 1 && (
+                          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, borderTop: `1px solid ${cssVar('--tooltip-border')}`, marginTop: 6, paddingTop: 6, fontWeight: 700, color: cssVar('--text1') }}>
+                            <span>Total</span><span>{fmt(total)}</span>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  }}
                 />
                 {activeCats.map((cat, i) => (
                   <Bar key={cat} dataKey={cat} stackId="ing" fill={COLORS[i % COLORS.length]} radius={i === activeCats.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]} animationDuration={400} />

@@ -371,7 +371,7 @@ button { cursor: pointer; }
 .filter-bar { display: flex; gap: 6px; margin-bottom: 6px; flex-wrap: nowrap; align-items: center; overflow-x: hidden; }
 .filter-bar.last { margin-bottom: 14px; }
 .filter-chip {
-  flex: 1; padding: 6px 4px; border-radius: 20px; font-size: 12px; text-align: center;
+  flex: none; padding: 6px 14px; border-radius: 20px; font-size: 12px; text-align: center;
   border: 1px solid var(--border); background: var(--bg2); color: var(--text2);
   -webkit-tap-highlight-color: transparent; white-space: nowrap;
 }
