@@ -170,18 +170,16 @@ const PERIODS = [
   { key: 'tot', label: 'Tot', months: null },
 ]
 
-function PeriodChart({ data, legend, lineElements, height = 220 }) {
+function PeriodChart({ data, legend, lineElements, dataKeys, height = 220 }) {
   const [period, setPeriod] = useState('tot')
 
   const { filtered, yDomain } = useMemo(() => {
     const p = PERIODS.find(p => p.key === period)
     const filtered = p?.months ? data.slice(-p.months) : data
-    const numericKeys = filtered.length
-      ? Object.keys(filtered[0]).filter(k => k !== 'mes')
-      : []
+    const keys = dataKeys || (filtered.length ? Object.keys(filtered[0]).filter(k => k !== 'mes') : [])
     let min = Infinity, max = -Infinity
     filtered.forEach(pt => {
-      numericKeys.forEach(k => {
+      keys.forEach(k => {
         const v = pt[k]
         if (v != null) { if (v < min) min = v; if (v > max) max = v }
       })
@@ -189,7 +187,7 @@ function PeriodChart({ data, legend, lineElements, height = 220 }) {
     const pad = (max - min) * 0.08 || 10
     const yDomain = min === Infinity ? ['auto', 'auto'] : [Math.floor(min - pad), Math.ceil(max + pad)]
     return { filtered, yDomain }
-  }, [data, period])
+  }, [data, period, dataKeys])
 
   const tooltipStyle = { background: cssVar('--tooltip-bg'), border: `1px solid ${cssVar('--tooltip-border')}`, borderRadius: 8, fontSize: 12, color: cssVar('--text1') }
 
@@ -505,7 +503,7 @@ function FundDetail({ fund, contributions, valuations, recFunds, colorIdx, onBac
             valuations={valuations.filter(v => v.fundId === fund.id).sort((a, b) => a.date.localeCompare(b.date))}
             funds={null}
           />
-          <PeriodChart data={chartData} height={200}
+          <PeriodChart data={chartData} height={200} dataKeys={['invertit', 'valor']}
             legend={<div style={{ display: 'flex', gap: 14, justifyContent: 'center', fontSize: 11, color: 'var(--text2)', marginTop: 6 }}><span>— Invertit</span><span><span style={{ color }}>■</span> Valor real</span></div>}
             lineElements={[
               <Line key="inv" type="monotone" dataKey="invertit" name="Invertit" stroke={cssVar('--text2')} strokeWidth={2} strokeDasharray="4 2" dot={false} connectNulls />,
@@ -604,6 +602,9 @@ function PortfolioView({ funds, contributions, valuations, loading, onSelectFund
           </div>
           <MonthlyBreakdown contributions={contributions} valuations={valuations} funds={funds} />
           <PeriodChart data={chartData}
+            dataKeys={chartMode === 'individual'
+              ? funds.flatMap((_, i) => [`inv_${i}`, `fons_${i}`])
+              : ['invertit', 'valor']}
             legend={
               <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', justifyContent: 'center', fontSize: 11, color: 'var(--text2)', marginTop: 6 }}>
                 {chartMode === 'individual'
