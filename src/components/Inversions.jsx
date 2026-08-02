@@ -45,18 +45,27 @@ function DiaInput({ value, onChange }) {
 
 // ── Metrics ───────────────────────────────────────────────────────────────
 // entries: contributions (amountAdded), valuations: separate value records
+function calcMonthBalance(contributions, allVals, ym) {
+  const prevVals = allVals.filter(v => v.date.slice(0, 7) < ym)
+  const prevVal = prevVals.length ? prevVals[prevVals.length - 1].value : 0
+  const thisMonthAdded = contributions.filter(e => e.date.slice(0, 7) === ym).reduce((s, e) => s + e.amountAdded, 0)
+  const thisMonthVals = allVals.filter(v => v.date.slice(0, 7) === ym)
+  if (!thisMonthVals.length) return null
+  const endVal = thisMonthVals[thisMonthVals.length - 1].value
+  const base = prevVal + thisMonthAdded
+  const gain = endVal - base
+  const pct = base > 0 ? (gain / base) * 100 : null
+  return { gain, pct }
+}
+
 function calcFundMetrics(fund, contributions, valuations) {
   const cs = contributions.filter(e => e.fundId === fund.id).sort((a, b) => a.date.localeCompare(b.date))
   const vs = valuations.filter(v => v.fundId === fund.id).sort((a, b) => a.date.localeCompare(b.date))
-  // Also accept legacy currentValue from contributions if no separate valuations exist
   const legacyVs = cs.filter(e => e.currentValue > 0).map(e => ({ fundId: e.fundId, date: e.date, value: e.currentValue, id: e.id + '_leg' }))
   const allVals = vs.length ? vs : legacyVs
   if (!cs.length && !allVals.length) return null
 
-  const now = new Date()
-  const curYear = String(now.getFullYear())
-  const curYM = currentYM()
-
+  const curYear = String(new Date().getFullYear())
   const totalInvested = cs.reduce((s, e) => s + e.amountAdded, 0)
   const latestVal = allVals.length ? allVals[allVals.length - 1].value : 0
   const gain = latestVal - totalInvested
@@ -70,15 +79,7 @@ function calcFundMetrics(fund, contributions, valuations) {
   const ytdGain = ytdBase > 0 ? latestVal - ytdBase : 0
   const ytdPct = ytdBase > 0 ? (ytdGain / ytdBase) * 100 : null
 
-  // Monthly
-  const prevMonthVals = allVals.filter(v => v.date.slice(0, 7) < curYM)
-  const prevMonthVal = prevMonthVals.length ? prevMonthVals[prevMonthVals.length - 1].value : 0
-  const thisMonthAdded = cs.filter(e => e.date.slice(0, 7) === curYM).reduce((s, e) => s + e.amountAdded, 0)
-  const monthBase = prevMonthVal + thisMonthAdded
-  const monthGain = monthBase > 0 ? latestVal - monthBase : 0
-  const monthPct = monthBase > 0 ? (monthGain / monthBase) * 100 : null
-
-  return { totalInvested, currentValue: latestVal, gain, gainPct, ytdGain, ytdPct, monthGain, monthPct, sortedContributions: cs, sortedValuations: allVals }
+  return { totalInvested, currentValue: latestVal, gain, gainPct, ytdGain, ytdPct, sortedContributions: cs, sortedValuations: allVals, _cs: cs, _allVals: allVals }
 }
 
 function calcPortfolioMetrics(funds, contributions, valuations) {
@@ -91,10 +92,7 @@ function calcPortfolioMetrics(funds, contributions, valuations) {
   const ytdGain = mets.reduce((s, m) => s + (m.ytdGain || 0), 0)
   const ytdPcts = mets.filter(m => m.ytdPct !== null)
   const ytdPct = ytdPcts.length ? ytdPcts.reduce((s, m) => s + m.ytdPct, 0) / ytdPcts.length : null
-  const monthGain = mets.reduce((s, m) => s + (m.monthGain || 0), 0)
-  const monthPcts = mets.filter(m => m.monthPct !== null)
-  const monthPct = monthPcts.length ? monthPcts.reduce((s, m) => s + m.monthPct, 0) / monthPcts.length : null
-  return { totalInvested, currentValue, gain, gainPct, ytdGain, ytdPct, monthGain, monthPct }
+  return { totalInvested, currentValue, gain, gainPct, ytdGain, ytdPct, _cs: contributions, _allVals: valuations, _funds: funds }
 }
 
 // Chart: invested (cumulative) vs value over time
@@ -106,19 +104,23 @@ function buildChartData(funds, contributions, valuations) {
   if (!allDates.length) return []
 
   return allDates.map(ym => {
-    let totalInvested = 0, totalValue = 0, hasValue = false
-    funds.forEach(f => {
+    let totalInvested = 0, totalValue = 0, hasAnyValue = false
+    const point = { mes: ym2label(ym) }
+    funds.forEach((f, i) => {
       const cs = contributions.filter(e => e.fundId === f.id && e.date.slice(0, 7) <= ym)
       totalInvested += cs.reduce((s, e) => s + e.amountAdded, 0)
-      // Last valuation up to this ym
       const vs = valuations.filter(v => v.fundId === f.id && v.date.slice(0, 7) <= ym).sort((a, b) => a.date.localeCompare(b.date))
-      // Fallback: legacy currentValue from contributions
       const legVs = contributions.filter(e => e.fundId === f.id && e.date.slice(0, 7) <= ym && e.currentValue > 0).sort((a, b) => a.date.localeCompare(b.date))
       const allV = vs.length ? vs : legVs.map(e => ({ value: e.currentValue }))
-      if (allV.length) { totalValue += allV[allV.length - 1].value; hasValue = true }
+      if (allV.length) {
+        const v = Math.round(allV[allV.length - 1].value * 100) / 100
+        point[`fons_${i}`] = v
+        totalValue += v
+        hasAnyValue = true
+      }
     })
-    const point = { mes: ym2label(ym), invertit: Math.round(totalInvested * 100) / 100 }
-    if (hasValue) point.valor = Math.round(totalValue * 100) / 100
+    point.invertit = Math.round(totalInvested * 100) / 100
+    if (hasAnyValue) point.valor = Math.round(totalValue * 100) / 100
     return point
   })
 }
@@ -159,44 +161,74 @@ function Sheet({ title, onClose, children }) {
 }
 
 // ── Metric cards ──────────────────────────────────────────────────────────
-function MetricRow({ metrics }) {
+function MetricRow({ metrics, selectedMonth, onMonthChange }) {
   if (!metrics) return null
-  const { currentValue, totalInvested, gain, gainPct, ytdGain, ytdPct, monthGain, monthPct } = metrics
-  const cardStyle = { flex: 1, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 2 }
+  const { currentValue, totalInvested, gain, gainPct, ytdGain, ytdPct, _cs, _allVals, _funds } = metrics
+
+  // Per-month balance: computed from raw data for selected month
+  const monthBalance = useMemo(() => {
+    if (!selectedMonth) return null
+    if (_funds) {
+      // Portfolio
+      let totalGain = 0, hasAny = false
+      _funds.forEach(f => {
+        const cs = _cs.filter(e => e.fundId === f.id)
+        const vs = _allVals.filter(v => v.fundId === f.id).sort((a, b) => a.date.localeCompare(b.date))
+        const r = calcMonthBalance(cs, vs, selectedMonth)
+        if (r) { totalGain += r.gain; hasAny = true }
+      })
+      if (!hasAny) return null
+      return { gain: totalGain, pct: null }
+    } else {
+      return calcMonthBalance(_cs || [], _allVals || [], selectedMonth)
+    }
+  }, [selectedMonth, _cs, _allVals, _funds])
+
+  const gridStyle = {
+    display: 'grid',
+    gridTemplateColumns: '1fr 1fr',
+    gap: 10,
+    marginBottom: 20,
+  }
+  const cardStyle = {
+    padding: '12px 14px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 2,
+    minHeight: 80,
+  }
+
   return (
-    <>
-      <div style={{ display: 'flex', gap: 10, marginBottom: 10, alignItems: 'stretch' }}>
-        <div className="card" style={cardStyle}>
-          <div style={{ fontSize: 11, color: 'var(--text2)' }}>Valor actual</div>
-          <div style={{ fontSize: 18, fontWeight: 800, marginTop: 'auto' }}>{fmt2(currentValue)}</div>
-        </div>
-        <div className="card" style={cardStyle}>
-          <div style={{ fontSize: 11, color: 'var(--text2)' }}>Total invertit</div>
-          <div style={{ fontSize: 18, fontWeight: 800, marginTop: 'auto' }}>{fmt(totalInvested)}</div>
-        </div>
+    <div style={gridStyle}>
+      <div className="card" style={cardStyle}>
+        <div style={{ fontSize: 11, color: 'var(--text2)' }}>Valor actual</div>
+        <div style={{ fontSize: 18, fontWeight: 800, marginTop: 'auto' }}>{fmt2(currentValue)}</div>
       </div>
-      <div style={{ display: 'flex', gap: 10, marginBottom: 20, alignItems: 'stretch' }}>
-        <div className="card" style={cardStyle}>
-          <div style={{ fontSize: 11, color: 'var(--text2)' }}>Guany total</div>
-          <div style={{ fontSize: 15, fontWeight: 700, color: pctColor(gain), marginTop: 'auto' }}>{fmt2(gain)}</div>
-          <div style={{ fontSize: 12, color: pctColor(gainPct) }}>{fmtPct(gainPct)}</div>
+      <div className="card" style={cardStyle}>
+        <div style={{ fontSize: 11, color: 'var(--text2)' }}>Total invertit</div>
+        <div style={{ fontSize: 18, fontWeight: 800, marginTop: 'auto' }}>{fmt(totalInvested)}</div>
+      </div>
+      <div className="card" style={cardStyle}>
+        <div style={{ fontSize: 11, color: 'var(--text2)' }}>Balanç total</div>
+        <div style={{ fontSize: 15, fontWeight: 700, color: pctColor(gain), marginTop: 'auto' }}>{fmt2(gain)}</div>
+        <div style={{ fontSize: 12, color: pctColor(gainPct) }}>{fmtPct(gainPct)}</div>
+      </div>
+      <div className="card" style={cardStyle}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ fontSize: 11, color: 'var(--text2)' }}>Balanç mensual</div>
+          <input type="month" value={selectedMonth || ''} onChange={e => onMonthChange(e.target.value)}
+            style={{ fontSize: 10, padding: '2px 4px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg3)', color: 'var(--text2)', width: 94 }} />
         </div>
-        {ytdPct !== null && (
-          <div className="card" style={cardStyle}>
-            <div style={{ fontSize: 11, color: 'var(--text2)' }}>YTD</div>
-            <div style={{ fontSize: 15, fontWeight: 700, color: pctColor(ytdGain), marginTop: 'auto' }}>{fmt2(ytdGain)}</div>
-            <div style={{ fontSize: 12, color: pctColor(ytdPct) }}>{fmtPct(ytdPct)}</div>
-          </div>
-        )}
-        {monthPct !== null && (
-          <div className="card" style={cardStyle}>
-            <div style={{ fontSize: 11, color: 'var(--text2)' }}>Aquest mes</div>
-            <div style={{ fontSize: 15, fontWeight: 700, color: pctColor(monthGain), marginTop: 'auto' }}>{fmt2(monthGain)}</div>
-            <div style={{ fontSize: 12, color: pctColor(monthPct) }}>{fmtPct(monthPct)}</div>
-          </div>
+        {monthBalance ? (
+          <>
+            <div style={{ fontSize: 15, fontWeight: 700, color: pctColor(monthBalance.gain), marginTop: 'auto' }}>{fmt2(monthBalance.gain)}</div>
+            {monthBalance.pct !== null && <div style={{ fontSize: 12, color: pctColor(monthBalance.pct) }}>{fmtPct(monthBalance.pct)}</div>}
+          </>
+        ) : (
+          <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 'auto' }}>Sense dades</div>
         )}
       </div>
-    </>
+    </div>
   )
 }
 
@@ -341,6 +373,7 @@ function HistoryList({ items, renderItem, onAdd, title, emptyLabel }) {
 
 // ── Fund Detail ───────────────────────────────────────────────────────────
 function FundDetail({ fund, contributions, valuations, recFunds, colorIdx, onBack, onAddContrib, onEditContrib, onDeleteContrib, onAddVal, onEditVal, onDeleteVal, onEditFund, onDeleteFund, onAddRec, onEditRec, onToggleRec, onDeleteRec }) {
+  const [selMonth, setSelMonth] = useState(currentYM())
   const metrics = calcFundMetrics(fund, contributions, valuations)
   const chartData = buildFundChartData(fund, contributions, valuations)
   const color = COLORS[colorIdx % COLORS.length]
@@ -360,7 +393,7 @@ function FundDetail({ fund, contributions, valuations, recFunds, colorIdx, onBac
         <button className="btn-icon" style={{ color: 'var(--red)' }} onClick={onDeleteFund}><Trash2 size={17} /></button>
       </div>
 
-      <MetricRow metrics={metrics} />
+      <MetricRow metrics={metrics} selectedMonth={selMonth} onMonthChange={setSelMonth} />
       {!metrics && <p className="empty" style={{ marginBottom: 20 }}>Sense dades. Afegeix una aportació o valoració!</p>}
 
       {chartData.length > 1 && (
@@ -373,9 +406,9 @@ function FundDetail({ fund, contributions, valuations, recFunds, colorIdx, onBac
                 <XAxis dataKey="mes" tick={{ fill: cssVar('--chart-tick'), fontSize: 11 }} />
                 <YAxis tick={{ fill: cssVar('--chart-tick'), fontSize: 10 }} tickFormatter={v => `${v}€`} />
                 <Tooltip contentStyle={{ background: cssVar('--tooltip-bg'), border: `1px solid ${cssVar('--tooltip-border')}`, borderRadius: 8, fontSize: 12, color: cssVar('--text1') }}
-                  formatter={(v, name) => [fmt2(v), name === 'invertit' ? 'Invertit' : 'Valor real']} />
-                <Line type="monotone" dataKey="invertit" stroke={cssVar('--text2')} strokeWidth={2} strokeDasharray="4 2" dot={false} connectNulls />
-                <Line type="monotone" dataKey="valor" stroke={color} strokeWidth={2.5} dot={{ r: 3.5, fill: color }} connectNulls />
+                  formatter={(v, name) => [fmt2(v), name]} />
+                <Line type="monotone" dataKey="invertit" name="Invertit" stroke={cssVar('--text2')} strokeWidth={2} strokeDasharray="4 2" dot={false} connectNulls />
+                <Line type="monotone" dataKey="valor" name="Valor real" stroke={color} strokeWidth={2.5} dot={{ r: 3.5, fill: color }} connectNulls />
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -452,6 +485,7 @@ function FundDetail({ fund, contributions, valuations, recFunds, colorIdx, onBac
 
 // ── Portfolio view ────────────────────────────────────────────────────────
 function PortfolioView({ funds, contributions, valuations, loading, onSelectFund, onAddFund, onRefresh }) {
+  const [selMonth, setSelMonth] = useState(currentYM())
   const portfolio = calcPortfolioMetrics(funds, contributions, valuations)
   const chartData = useMemo(() => buildChartData(funds, contributions, valuations), [funds, contributions, valuations])
 
@@ -461,7 +495,7 @@ function PortfolioView({ funds, contributions, valuations, loading, onSelectFund
         <button className="btn-icon" onClick={onRefresh}><RefreshCw size={16} /></button>
       </div>
 
-      <MetricRow metrics={portfolio} />
+      <MetricRow metrics={portfolio} selectedMonth={selMonth} onMonthChange={setSelMonth} />
 
       {chartData.length > 1 && (
         <div className="stats-section">
@@ -473,15 +507,19 @@ function PortfolioView({ funds, contributions, valuations, loading, onSelectFund
                 <XAxis dataKey="mes" tick={{ fill: cssVar('--chart-tick'), fontSize: 11 }} />
                 <YAxis tick={{ fill: cssVar('--chart-tick'), fontSize: 10 }} tickFormatter={v => `${v}€`} />
                 <Tooltip contentStyle={{ background: cssVar('--tooltip-bg'), border: `1px solid ${cssVar('--tooltip-border')}`, borderRadius: 8, fontSize: 12, color: cssVar('--text1') }}
-                  formatter={(v, name) => [fmt2(v), name === 'invertit' ? 'Invertit' : 'Valor real']} />
-                <Line type="monotone" dataKey="invertit" stroke={cssVar('--text2')} strokeWidth={2} strokeDasharray="5 3" dot={false} connectNulls name="Invertit" />
-                <Line type="monotone" dataKey="valor" stroke="var(--accent-light)" strokeWidth={2.5} dot={{ r: 3, fill: 'var(--accent-light)' }} connectNulls name="Valor real" />
+                  formatter={(v, name) => [fmt2(v), name]} />
+                <Line type="monotone" dataKey="invertit" stroke={cssVar('--text2')} strokeWidth={2} strokeDasharray="5 3" dot={false} connectNulls name="Invertit total" />
+                {funds.map((f, i) => (
+                  <Line key={f.id} type="monotone" dataKey={`fons_${i}`} stroke={COLORS[i % COLORS.length]} strokeWidth={2} dot={{ r: 3, fill: COLORS[i % COLORS.length] }} connectNulls name={f.name} />
+                ))}
               </LineChart>
             </ResponsiveContainer>
           </div>
-          <div style={{ display: 'flex', gap: 14, justifyContent: 'center', fontSize: 11, color: 'var(--text2)', marginTop: 6 }}>
-            <span>— Invertit</span>
-            <span><span style={{ color: 'var(--accent-light)' }}>■</span> Valor real</span>
+          <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', justifyContent: 'center', fontSize: 11, color: 'var(--text2)', marginTop: 6 }}>
+            <span>— Invertit total</span>
+            {funds.map((f, i) => (
+              <span key={f.id}><span style={{ color: COLORS[i % COLORS.length] }}>■</span> {f.name}</span>
+            ))}
           </div>
         </div>
       )}
