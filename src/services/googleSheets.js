@@ -495,12 +495,13 @@ const REC_FUNDS_SHEET = 'RecFons'
 
 export async function getRecFunds(spreadsheetId) {
   try {
-    await ensureSheet(spreadsheetId, REC_FUNDS_SHEET, ['ID', 'FonsID', 'Dia', 'Inici', 'Import'])
+    await ensureSheet(spreadsheetId, REC_FUNDS_SHEET, ['ID', 'FonsID', 'Dia', 'Inici', 'Import', 'Activa'])
     const res = await window.gapi.client.sheets.spreadsheets.values.get({
-      spreadsheetId, range: `${REC_FUNDS_SHEET}!A2:E`,
+      spreadsheetId, range: `${REC_FUNDS_SHEET}!A2:F`,
     })
     return (res.result.values || []).map(r => ({
       id: r[0] || '', fundId: r[1] || '', dia: r[2] || '1', inici: r[3] || '', importe: parseNum(r[4]),
+      activa: (r[5] ?? 'TRUE').toString().toUpperCase() !== 'FALSE',
     })).filter(r => r.id && r.fundId)
   } catch { return [] }
 }
@@ -517,6 +518,20 @@ export async function addRecFund(spreadsheetId, rec) {
 
 export async function deleteRecFund(spreadsheetId, id) {
   await deleteRowById(spreadsheetId, REC_FUNDS_SHEET, 'A', id)
+}
+
+export async function updateRecFund(spreadsheetId, rec) {
+  const res = await window.gapi.client.sheets.spreadsheets.values.get({
+    spreadsheetId, range: `${REC_FUNDS_SHEET}!A:A`,
+  })
+  const rows = res.result.values || []
+  const rowIndex = rows.findIndex(r => r[0] === rec.id)
+  if (rowIndex < 1) return
+  await window.gapi.client.sheets.spreadsheets.values.update({
+    spreadsheetId, range: `${REC_FUNDS_SHEET}!A${rowIndex + 1}:F${rowIndex + 1}`,
+    valueInputOption: 'RAW',
+    resource: { values: [[rec.id, rec.fundId, rec.dia, rec.inici, rec.importe, rec.activa === false ? 'FALSE' : 'TRUE']] },
+  })
 }
 
 function daysInMonthInv(y, m) { return new Date(y, m, 0).getDate() }
@@ -539,7 +554,7 @@ export async function applyRecurringContributions(spreadsheetId) {
     const curYear = now.getFullYear(), curMonth = now.getMonth() + 1, curDay = now.getDate()
     const added = []
 
-    for (const rec of recs) {
+    for (const rec of recs.filter(r => r.activa !== false)) {
       const [iy, im] = rec.inici.split('-').map(Number)
       if (!iy || !im) continue
       let y = iy, m = im

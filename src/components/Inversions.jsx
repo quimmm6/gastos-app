@@ -1,10 +1,10 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Plus, ChevronLeft, Trash2, X, Edit2, RefreshCw, Repeat } from 'lucide-react'
+import { Plus, ChevronLeft, Trash2, X, Edit2, RefreshCw } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import {
   getFunds, addFund, updateFund, deleteFund,
   getInvEntries, addInvEntry, updateInvEntry, deleteInvEntry,
-  getRecFunds, addRecFund, deleteRecFund, applyRecurringContributions,
+  getRecFunds, addRecFund, updateRecFund, deleteRecFund, applyRecurringContributions,
 } from '../services/googleSheets'
 
 function cssVar(n) { return getComputedStyle(document.documentElement).getPropertyValue(n).trim() }
@@ -19,6 +19,29 @@ function currentYM() { const n = new Date(); return `${n.getFullYear()}-${String
 
 const COLORS = ['#818cf8', '#34d399', '#fbbf24', '#f87171', '#22d3ee', '#c084fc', '#fb923c', '#a3e635']
 
+// ── DiaInput (reused pattern from TransactionList) ─────────────────────────
+function DiaInput({ value, onChange }) {
+  const isP = value === 'P', isU = value === 'U', isSpecial = isP || isU
+  const numVal = isSpecial ? (isU ? '31' : '1') : value
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <select value={numVal} disabled={isSpecial} onChange={e => onChange(e.target.value)}
+          style={{ flex: 1, background: 'var(--bg3)', border: '1px solid var(--border)', color: isSpecial ? 'var(--text2)' : 'var(--text1)', borderRadius: 8, padding: '10px 12px', fontSize: 15, opacity: isSpecial ? 0.45 : 1, WebkitAppearance: 'none', appearance: 'none' }}>
+          {Array.from({ length: 28 }, (_, i) => String(i + 1)).map(d => <option key={d} value={d}>Dia {d}</option>)}
+        </select>
+        {[['P', 'Primer'], ['U', 'Últim']].map(([v, l]) => (
+          <button key={v} type="button" onClick={() => onChange(value === v ? (v === 'P' ? '1' : '28') : v)}
+            style={{ padding: '10px 12px', borderRadius: 8, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap', background: value === v ? 'var(--accent)' : 'var(--bg3)', border: `1px solid ${value === v ? 'var(--accent)' : 'var(--border)'}`, color: value === v ? '#fff' : 'var(--text2)' }}>
+            {l}
+          </button>
+        ))}
+      </div>
+      {isU && <p style={{ fontSize: 12, color: 'var(--text2)', margin: 0 }}>S'adaptarà a l'últim dia de cada mes.</p>}
+    </div>
+  )
+}
+
 // ── Metrics ───────────────────────────────────────────────────────────────
 function calcFundMetrics(fund, allEntries) {
   const es = allEntries.filter(e => e.fundId === fund.id).sort((a, b) => a.date.localeCompare(b.date))
@@ -26,27 +49,22 @@ function calcFundMetrics(fund, allEntries) {
   const now = new Date()
   const curYear = String(now.getFullYear())
   const curYM = currentYM()
-
   const totalInvested = es.reduce((s, e) => s + e.amountAdded, 0)
-  const latest = es[es.length - 1]
-  const currentValue = latest.currentValue
+  const currentValue = es[es.length - 1].currentValue
   const gain = currentValue - totalInvested
   const gainPct = totalInvested > 0 ? (gain / totalInvested) * 100 : 0
-
   const prevYearEs = es.filter(e => e.date.slice(0, 4) < curYear)
   const prevYearVal = prevYearEs.length ? prevYearEs[prevYearEs.length - 1].currentValue : 0
   const thisYearAdded = es.filter(e => e.date.slice(0, 4) === curYear).reduce((s, e) => s + e.amountAdded, 0)
   const ytdBase = prevYearVal + thisYearAdded
   const ytdGain = ytdBase > 0 ? currentValue - ytdBase : 0
   const ytdPct = ytdBase > 0 ? (ytdGain / ytdBase) * 100 : null
-
   const prevMonthEs = es.filter(e => e.date.slice(0, 7) < curYM)
   const prevMonthVal = prevMonthEs.length ? prevMonthEs[prevMonthEs.length - 1].currentValue : 0
   const thisMonthAdded = es.filter(e => e.date.slice(0, 7) === curYM).reduce((s, e) => s + e.amountAdded, 0)
   const monthBase = prevMonthVal + thisMonthAdded
   const monthGain = monthBase > 0 ? currentValue - monthBase : 0
   const monthPct = monthBase > 0 ? (monthGain / monthBase) * 100 : null
-
   return { totalInvested, currentValue, gain, gainPct, ytdGain, ytdPct, monthGain, monthPct, sortedEntries: es }
 }
 
@@ -82,7 +100,7 @@ function buildChartData(funds, allEntries) {
   })
 }
 
-// ── Shared bottom-sheet modal ─────────────────────────────────────────────
+// ── Sheet modal ───────────────────────────────────────────────────────────
 function Sheet({ title, onClose, children }) {
   return (
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
@@ -97,7 +115,7 @@ function Sheet({ title, onClose, children }) {
   )
 }
 
-// ── Metric cards row ──────────────────────────────────────────────────────
+// ── Metric cards ──────────────────────────────────────────────────────────
 function MetricRow({ metrics }) {
   if (!metrics) return null
   const { currentValue, totalInvested, gain, gainPct, ytdGain, ytdPct, monthGain, monthPct } = metrics
@@ -138,7 +156,7 @@ function MetricRow({ metrics }) {
   )
 }
 
-// ── Add/Edit Fund ─────────────────────────────────────────────────────────
+// ── Forms ─────────────────────────────────────────────────────────────────
 function FundForm({ initial, onClose, onSave, saving }) {
   const [name, setName] = useState(initial?.name || '')
   const [isin, setIsin] = useState(initial?.isin || '')
@@ -159,7 +177,6 @@ function FundForm({ initial, onClose, onSave, saving }) {
   )
 }
 
-// ── Add/Edit Entry ────────────────────────────────────────────────────────
 function EntryForm({ funds, initialFundId, initial, onClose, onSave, saving }) {
   const [fundId, setFundId] = useState(initial?.fundId || initialFundId || funds[0]?.id || '')
   const [date, setDate] = useState(initial?.date || todayStr())
@@ -196,25 +213,25 @@ function EntryForm({ funds, initialFundId, initial, onClose, onSave, saving }) {
   )
 }
 
-// ── Add Recurring Contribution ────────────────────────────────────────────
-function RecForm({ fund, onClose, onSave, saving }) {
-  const [dia, setDia] = useState('1')
-  const [inici, setInici] = useState(currentYM())
-  const [importe, setImporte] = useState('')
+function RecForm({ fund, initial, onClose, onSave, saving }) {
+  const [dia, setDia] = useState(initial?.dia || '1')
+  const [inici, setInici] = useState(initial?.inici || currentYM())
+  const [importe, setImporte] = useState(initial ? String(initial.importe) : '')
   const valid = dia && inici && importe
   return (
-    <Sheet title="Aportació recurrent" onClose={onClose}>
-      <p style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 16 }}>
-        Fons: <strong style={{ color: 'var(--text1)' }}>{fund.name}</strong><br />
-        S'aplicarà automàticament cada mes. Tu actualitzaràs el valor del fons manualment.
-      </p>
+    <Sheet title={initial ? 'Editar recurrent' : 'Aportació recurrent'} onClose={onClose}>
+      {!initial && (
+        <p style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 16 }}>
+          Fons: <strong style={{ color: 'var(--text1)' }}>{fund.name}</strong><br />
+          S'aplicarà automàticament cada mes. Actualitza el valor manualment quan vulguis.
+        </p>
+      )}
       <div className="form-group">
         <label>Dia del mes</label>
-        <input type="number" min="1" max="28" placeholder="Ex: 1" value={dia} onChange={e => setDia(e.target.value)} inputMode="numeric" />
-        <span style={{ fontSize: 11, color: 'var(--text2)' }}>Posa 1 per primer dia, 28 per últim</span>
+        <DiaInput value={dia} onChange={setDia} />
       </div>
       <div className="form-group">
-        <label>Mes d'inici (AAAA-MM)</label>
+        <label>Mes d'inici</label>
         <input type="month" value={inici} onChange={e => setInici(e.target.value)} />
       </div>
       <div className="form-group">
@@ -222,15 +239,15 @@ function RecForm({ fund, onClose, onSave, saving }) {
         <input type="number" min="0" step="0.01" placeholder="Ex: 200" value={importe} onChange={e => setImporte(e.target.value)} inputMode="decimal" />
       </div>
       <button className="btn-primary" disabled={!valid || saving}
-        onClick={() => valid && onSave({ fundId: fund.id, dia: String(parseInt(dia) === 28 ? 'U' : dia), inici, importe: parseFloat(importe) })}>
-        {saving ? 'Desant…' : 'Crear aportació recurrent'}
+        onClick={() => valid && onSave({ fundId: fund.id, dia, inici, importe: parseFloat(importe) })}>
+        {saving ? 'Desant…' : initial ? 'Desar canvis' : 'Crear aportació recurrent'}
       </button>
     </Sheet>
   )
 }
 
 // ── Fund Detail ───────────────────────────────────────────────────────────
-function FundDetail({ fund, entries, recFunds, colorIdx, onBack, onAddEntry, onEditEntry, onDeleteEntry, onEditFund, onDeleteFund, onAddRec, onDeleteRec }) {
+function FundDetail({ fund, entries, recFunds, colorIdx, onBack, onAddEntry, onEditEntry, onDeleteEntry, onEditFund, onDeleteFund, onAddRec, onEditRec, onToggleRec, onDeleteRec }) {
   const metrics = calcFundMetrics(fund, entries)
   const chartData = buildChartData([fund], entries)
   const color = COLORS[colorIdx % COLORS.length]
@@ -238,7 +255,6 @@ function FundDetail({ fund, entries, recFunds, colorIdx, onBack, onAddEntry, onE
 
   return (
     <div>
-      {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
         <button className="btn-icon" onClick={onBack}><ChevronLeft size={22} /></button>
         <div style={{ flex: 1 }}>
@@ -250,10 +266,8 @@ function FundDetail({ fund, entries, recFunds, colorIdx, onBack, onAddEntry, onE
       </div>
 
       <MetricRow metrics={metrics} />
-
       {!metrics && <p className="empty" style={{ marginBottom: 20 }}>Sense entrades. Afegeix-ne una!</p>}
 
-      {/* Line chart */}
       {chartData.length > 1 && (
         <div className="stats-section">
           <div className="stats-title">Evolució</div>
@@ -279,12 +293,19 @@ function FundDetail({ fund, entries, recFunds, colorIdx, onBack, onAddEntry, onE
         </div>
         {myRecs.length === 0 && <p style={{ fontSize: 13, color: 'var(--text2)' }}>Cap aportació recurrent configurada.</p>}
         {myRecs.map(r => (
-          <div key={r.id} className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', marginBottom: 8 }}>
+          <div key={r.id} className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', marginBottom: 8, opacity: r.activa ? 1 : 0.5 }}>
             <div>
-              <div style={{ fontWeight: 600, fontSize: 14 }}>{fmt(r.importe)}/mes</div>
+              <div style={{ fontWeight: 600, fontSize: 14 }}>{fmt(r.importe)}/mes {!r.activa && <span style={{ fontSize: 11, color: 'var(--text2)' }}>(inactiva)</span>}</div>
               <div style={{ fontSize: 12, color: 'var(--text2)' }}>Dia {r.dia === 'U' ? 'últim' : r.dia} · des de {r.inici}</div>
             </div>
-            <button className="btn-icon" style={{ color: 'var(--text2)' }} onClick={() => onDeleteRec(r.id)}><Trash2 size={15} /></button>
+            <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+              <button className="btn-icon" onClick={() => onToggleRec(r)}
+                style={{ fontSize: 11, color: r.activa ? 'var(--green)' : 'var(--text2)', padding: '4px 8px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg3)' }}>
+                {r.activa ? 'Activa' : 'Inactiva'}
+              </button>
+              <button className="btn-icon" onClick={() => onEditRec(r)}><Edit2 size={14} /></button>
+              <button className="btn-icon" style={{ color: 'var(--red)' }} onClick={() => onDeleteRec(r.id)}><Trash2 size={14} /></button>
+            </div>
           </div>
         ))}
       </div>
@@ -305,7 +326,7 @@ function FundDetail({ fund, entries, recFunds, colorIdx, onBack, onAddEntry, onE
             <div>
               <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 3 }}>{e.date}</div>
               {e.amountAdded > 0
-                ? <div style={{ fontSize: 12, color: 'var(--green)', fontWeight: 600 }}>+{fmt2(e.amountAdded)} aportació</div>
+                ? <div style={{ fontSize: 12, color: 'var(--green)', fontWeight: 600 }}>+{fmt2(e.amountAdded)}</div>
                 : <div style={{ fontSize: 12, color: 'var(--text2)' }}>Sense aportació</div>
               }
             </div>
@@ -375,7 +396,6 @@ function PortfolioView({ funds, entries, loading, onSelectFund, onAddFund, onAdd
       </div>
 
       {loading && !funds.length && <p className="empty">Carregant…</p>}
-
       {!loading && !funds.length && (
         <div style={{ textAlign: 'center', padding: '48px 20px' }}>
           <div style={{ fontSize: 44, marginBottom: 12 }}>📈</div>
@@ -426,7 +446,7 @@ export default function Inversions({ spreadsheetId }) {
   const [saving, setSaving] = useState(false)
   const [selectedFundId, setSelectedFundId] = useState(null)
   const [selectedFundIdx, setSelectedFundIdx] = useState(0)
-  const [modal, setModal] = useState(null) // 'addFund'|'editFund'|'addEntry'|'editEntry'|'addRec'
+  const [modal, setModal] = useState(null)
   const [editTarget, setEditTarget] = useState(null)
 
   const selectedFund = funds.find(f => f.id === selectedFundId) || null
@@ -435,14 +455,10 @@ export default function Inversions({ spreadsheetId }) {
     setLoading(true)
     try {
       const [f, e, r, newEntries] = await Promise.all([
-        getFunds(spreadsheetId),
-        getInvEntries(spreadsheetId),
-        getRecFunds(spreadsheetId),
-        applyRecurringContributions(spreadsheetId),
+        getFunds(spreadsheetId), getInvEntries(spreadsheetId),
+        getRecFunds(spreadsheetId), applyRecurringContributions(spreadsheetId),
       ])
-      setFunds(f)
-      setRecFunds(r)
-      // Merge newly applied recurring entries
+      setFunds(f); setRecFunds(r)
       const allEntries = [...e]
       newEntries.forEach(ne => { if (!allEntries.find(x => x.id === ne.id)) allEntries.push(ne) })
       setEntries(allEntries)
@@ -485,7 +501,7 @@ export default function Inversions({ spreadsheetId }) {
     try { const e = await addInvEntry(spreadsheetId, { fundId, date, amountAdded, currentValue }); setEntries(p => [...p, e]); close() }
     catch (e) { console.error(e) } finally { setSaving(false) }
   }
-  const handleEditEntry = async ({ fundId, date, amountAdded, currentValue }) => {
+  const handleEditEntry = async ({ date, amountAdded, currentValue }) => {
     setSaving(true)
     try {
       const u = { ...editTarget, date, amountAdded, currentValue }
@@ -499,8 +515,21 @@ export default function Inversions({ spreadsheetId }) {
   }
   const handleAddRec = async (rec) => {
     setSaving(true)
-    try { const r = await addRecFund(spreadsheetId, rec); setRecFunds(p => [...p, r]); close(); await fetchData() }
+    try { const r = await addRecFund(spreadsheetId, { ...rec, activa: true }); setRecFunds(p => [...p, r]); close(); fetchData() }
     catch (e) { console.error(e) } finally { setSaving(false) }
+  }
+  const handleEditRec = async (rec) => {
+    setSaving(true)
+    try {
+      const u = { ...editTarget, ...rec }
+      await updateRecFund(spreadsheetId, u)
+      setRecFunds(p => p.map(r => r.id === u.id ? u : r)); close()
+    } catch (e) { console.error(e) } finally { setSaving(false) }
+  }
+  const handleToggleRec = async (rec) => {
+    const u = { ...rec, activa: !rec.activa }
+    try { await updateRecFund(spreadsheetId, u); setRecFunds(p => p.map(r => r.id === u.id ? u : r)) }
+    catch (e) { console.error(e) }
   }
   const handleDeleteRec = async (id) => {
     try { await deleteRecFund(spreadsheetId, id); setRecFunds(p => p.filter(r => r.id !== id)) }
@@ -513,10 +542,7 @@ export default function Inversions({ spreadsheetId }) {
     <div>
       {selectedFund ? (
         <FundDetail
-          fund={selectedFund}
-          entries={entries}
-          recFunds={recFunds}
-          colorIdx={selectedFundIdx}
+          fund={selectedFund} entries={entries} recFunds={recFunds} colorIdx={selectedFundIdx}
           onBack={() => setSelectedFundId(null)}
           onAddEntry={() => setModal('addEntry')}
           onEditEntry={e => { setEditTarget(e); setModal('editEntry') }}
@@ -524,6 +550,8 @@ export default function Inversions({ spreadsheetId }) {
           onEditFund={() => setModal('editFund')}
           onDeleteFund={() => handleDeleteFund(selectedFund.id)}
           onAddRec={() => setModal('addRec')}
+          onEditRec={r => { setEditTarget(r); setModal('editRec') }}
+          onToggleRec={handleToggleRec}
           onDeleteRec={handleDeleteRec}
         />
       ) : (
@@ -538,15 +566,10 @@ export default function Inversions({ spreadsheetId }) {
 
       {modal === 'addFund' && <FundForm onClose={close} onSave={handleAddFund} saving={saving} />}
       {modal === 'editFund' && selectedFund && <FundForm initial={selectedFund} onClose={close} onSave={handleEditFund} saving={saving} />}
-      {(modal === 'addEntry') && funds.length > 0 && (
-        <EntryForm funds={funds} initialFundId={entryInitialFundId} onClose={close} onSave={handleAddEntry} saving={saving} />
-      )}
-      {modal === 'editEntry' && editTarget && (
-        <EntryForm funds={funds} initial={editTarget} onClose={close} onSave={handleEditEntry} saving={saving} />
-      )}
-      {modal === 'addRec' && selectedFund && (
-        <RecForm fund={selectedFund} onClose={close} onSave={handleAddRec} saving={saving} />
-      )}
+      {modal === 'addEntry' && funds.length > 0 && <EntryForm funds={funds} initialFundId={entryInitialFundId} onClose={close} onSave={handleAddEntry} saving={saving} />}
+      {modal === 'editEntry' && editTarget && <EntryForm funds={funds} initial={editTarget} onClose={close} onSave={handleEditEntry} saving={saving} />}
+      {modal === 'addRec' && selectedFund && <RecForm fund={selectedFund} onClose={close} onSave={handleAddRec} saving={saving} />}
+      {modal === 'editRec' && editTarget && selectedFund && <RecForm fund={selectedFund} initial={editTarget} onClose={close} onSave={handleEditRec} saving={saving} />}
     </div>
   )
 }

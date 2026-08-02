@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, startTransition } from 'react'
 import { createPortal } from 'react-dom'
-import { Home, List, BarChart2, Tag, Plus, LogOut, Moon, Sun, LayoutDashboard, TrendingUp } from 'lucide-react'
+import { Home, List, BarChart2, Plus, LogOut, Moon, Sun, LayoutDashboard, TrendingUp, Settings } from 'lucide-react'
 import { loadGoogleAPIs, signIn, signOut, isSignedIn, getUserEmail, initSheet, getTransactions, getCategories, saveCategories, applyRecurrents, addRecurrent } from './services/googleSheets'
 import { DEMO_TRANSACTIONS, DEMO_CATEGORIES, DEMO_RECURRENTS } from './demoData'
 import Dashboard from './components/Dashboard'
@@ -14,9 +14,9 @@ import Logo from './components/Logo'
 import BottomSheet from './components/BottomSheet'
 import './App.css'
 
-const TABS = ['add', 'inicio', 'lista', 'stats', 'inv', 'cats']
-const TAB_ICONS = { add: Plus, inicio: LayoutDashboard, lista: List, stats: BarChart2, inv: TrendingUp, cats: Tag }
-const TAB_NAMES = { add: 'Afegir', inicio: 'Resum', lista: 'Llista', stats: 'Stats', inv: 'Inv.', cats: 'Cats' }
+const ALL_TABS = ['add', 'inicio', 'lista', 'stats', 'inv']
+const TAB_ICONS = { add: Plus, inicio: LayoutDashboard, lista: List, stats: BarChart2, inv: TrendingUp }
+const TAB_NAMES = { add: 'Afegir', inicio: 'Resum', lista: 'Llista', stats: 'Stats', inv: 'Inv.' }
 
 const DEFAULT_CATS = {
   gasto: [
@@ -104,6 +104,8 @@ export default function App() {
   const [tabAnimKey, setTabAnimKey] = useState(0)
   const [tabSlideDir, setTabSlideDir] = useState('left')
   const [showAdd, setShowAdd] = useState(false)
+  const [showSettings, setShowSettings] = useState(false)
+  const [invEnabled, setInvEnabled] = useState(() => localStorage.getItem('gastos_inv_enabled') !== 'false')
   const [categories, setCategories] = useState(loadCats)
   const [demoMode, setDemoMode] = useState(false)
   const [darkMode, setDarkMode] = useState(() => {
@@ -225,6 +227,14 @@ export default function App() {
     setCategories(cats)
     saveCategories(config.spreadsheetId, cats).catch(console.error)
   }
+  const TABS = invEnabled ? ALL_TABS : ALL_TABS.filter(t => t !== 'inv')
+
+  const toggleInvEnabled = (val) => {
+    setInvEnabled(val)
+    localStorage.setItem('gastos_inv_enabled', val ? 'true' : 'false')
+    if (!val && tab === 'inv') setTab('add')
+  }
+
   const mainSwipeX = useRef(null)
   const goTab = (newTab, dir) => { startTransition(() => { setTabSlideDir(dir); setTabAnimKey(k => k + 1); setTab(newTab) }) }
   const onMainTouchStart = (e) => { mainSwipeX.current = e.touches[0].clientX }
@@ -260,6 +270,7 @@ export default function App() {
             <button className="btn-icon" onClick={toggleTheme} title="Canviar tema">
               {darkMode ? <Sun size={18} /> : <Moon size={18} />}
             </button>
+            <button className="btn-icon" onClick={() => setShowSettings(true)} title="Configuració"><Settings size={18} /></button>
             <button className="btn-icon" onClick={handleSignOut} title="Sortir"><LogOut size={18} /></button>
           </div>
         </header>
@@ -279,8 +290,7 @@ export default function App() {
             {tab === 'inicio' && <Dashboard transactions={transactions} loading={loading} onRefresh={demoMode ? () => {} : fetchTransactions} categories={categories} spreadsheetId={config?.spreadsheetId} onDeleted={demoMode ? () => {} : onTransactionDeleted} onUpdated={demoMode ? () => {} : onTransactionUpdated} readOnly={demoMode} />}
             {tab === 'lista' && <TransactionList transactions={transactions} spreadsheetId={config?.spreadsheetId} onDeleted={demoMode ? () => {} : onTransactionDeleted} onUpdated={demoMode ? () => {} : onTransactionUpdated} loading={loading} categories={categories} readOnly={demoMode} demoRecurrents={demoMode ? DEMO_RECURRENTS : null} />}
             {tab === 'stats' && <Stats transactions={transactions} />}
-            {tab === 'inv' && <Inversions spreadsheetId={config?.spreadsheetId} />}
-            {tab === 'cats' && <Categories categories={categories} onSave={demoMode ? () => {} : handleSaveCats} transactions={transactions} spreadsheetId={config?.spreadsheetId} onReassigned={demoMode ? () => {} : onCategoryReassigned} readOnly={demoMode} />}
+            {tab === 'inv' && invEnabled && <Inversions spreadsheetId={config?.spreadsheetId} />}
           </div>
         </main>
 
@@ -295,6 +305,52 @@ export default function App() {
             )
           })}
         </nav>
+
+        {showSettings && createPortal(
+          <BottomSheet onClose={() => setShowSettings(false)}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <h2 style={{ fontSize: 18, fontWeight: 700 }}>Configuració</h2>
+            </div>
+
+            <div style={{ marginBottom: 24 }}>
+              <div className="stats-title">Categories</div>
+              <Categories
+                categories={categories}
+                onSave={demoMode ? () => {} : handleSaveCats}
+                transactions={transactions}
+                spreadsheetId={config?.spreadsheetId}
+                onReassigned={demoMode ? () => {} : onCategoryReassigned}
+                readOnly={demoMode}
+              />
+            </div>
+
+            <div className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div style={{ fontWeight: 600, fontSize: 14 }}>Pestanya Inversions</div>
+                <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 2 }}>Mostra la gestió de fons d'inversió</div>
+              </div>
+              <label style={{ position: 'relative', display: 'inline-block', width: 44, height: 26, flexShrink: 0 }}>
+                <input type="checkbox" checked={invEnabled} onChange={e => toggleInvEnabled(e.target.checked)}
+                  style={{ opacity: 0, width: 0, height: 0 }} />
+                <span style={{
+                  position: 'absolute', inset: 0, borderRadius: 26, cursor: 'pointer', transition: '.2s',
+                  background: invEnabled ? 'var(--accent)' : 'var(--border)',
+                }}>
+                  <span style={{
+                    position: 'absolute', top: 3, left: invEnabled ? 21 : 3, width: 20, height: 20,
+                    borderRadius: '50%', background: '#fff', transition: '.2s',
+                  }} />
+                </span>
+              </label>
+            </div>
+
+            <button className="btn-ghost" style={{ marginTop: 20, width: '100%', color: 'var(--red)', borderColor: 'var(--red)' }}
+              onClick={() => { setShowSettings(false); localStorage.removeItem('gastos_config'); setConfig(null) }}>
+              Canviar configuració de compte
+            </button>
+          </BottomSheet>,
+          document.body
+        )}
       </div>
     )
   }
