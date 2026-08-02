@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
-import { Plus, ChevronLeft, Trash2, X, Edit2, RefreshCw, ChevronDown } from 'lucide-react'
+import { Plus, ChevronLeft, Trash2, X, Edit2, ChevronDown } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import {
   getFunds, addFund, updateFund, deleteFund,
@@ -160,53 +160,74 @@ function Sheet({ title, onClose, children }) {
   )
 }
 
-// ── Metric cards ──────────────────────────────────────────────────────────
-function MetricRow({ metrics, selectedMonth, onMonthChange }) {
-  if (!metrics) return null
-  const { currentValue, totalInvested, gain, gainPct, ytdGain, ytdPct, _cs, _allVals, _funds } = metrics
+// ── Monthly breakdown table ───────────────────────────────────────────────
+function MonthlyBreakdown({ contributions, valuations, funds }) {
+  const [open, setOpen] = useState(false)
+  const rows = useMemo(() => {
+    const allYMs = [...new Set([
+      ...contributions.map(e => e.date.slice(0, 7)),
+      ...valuations.map(v => v.date.slice(0, 7)),
+    ])].sort().reverse()
 
-  // Per-month balance: computed from raw data for selected month
-  const monthBalance = useMemo(() => {
-    if (!selectedMonth) return null
-    if (_funds) {
-      // Portfolio
-      let totalGain = 0, hasAny = false
-      _funds.forEach(f => {
-        const cs = _cs.filter(e => e.fundId === f.id)
-        const vs = _allVals.filter(v => v.fundId === f.id).sort((a, b) => a.date.localeCompare(b.date))
-        const r = calcMonthBalance(cs, vs, selectedMonth)
-        if (r) { totalGain += r.gain; hasAny = true }
+    return allYMs.map(ym => {
+      let totalGain = 0, hasSomeVal = false
+      ;(funds || []).forEach(f => {
+        const cs = contributions.filter(e => e.fundId === f.id)
+        const vs = valuations.filter(v => v.fundId === f.id).sort((a, b) => a.date.localeCompare(b.date))
+        const r = calcMonthBalance(cs, vs, ym)
+        if (r) { totalGain += r.gain; hasSomeVal = true }
       })
-      if (!hasAny) return null
-      return { gain: totalGain, pct: null }
-    } else {
-      return calcMonthBalance(_cs || [], _allVals || [], selectedMonth)
-    }
-  }, [selectedMonth, _cs, _allVals, _funds])
+      // If no funds (single-fund view), contributions/valuations are already filtered
+      if (!funds) {
+        const r = calcMonthBalance(contributions, valuations, ym)
+        if (r) { totalGain = r.gain; hasSomeVal = true }
+      }
+      const added = contributions.filter(e => e.date.slice(0, 7) === ym).reduce((s, e) => s + e.amountAdded, 0)
+      return hasSomeVal ? { ym, gain: totalGain, added } : null
+    }).filter(Boolean)
+  }, [contributions, valuations, funds])
 
-  const gridStyle = {
-    display: 'grid',
-    gridTemplateColumns: '1fr 1fr',
-    gap: 10,
-    marginBottom: 20,
-  }
-  const cardStyle = {
-    padding: '12px 14px',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 2,
-    minHeight: 80,
-  }
+  if (!rows.length) return null
+  return (
+    <div className="stats-section">
+      <button onClick={() => setOpen(o => !o)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+        <div className="stats-title" style={{ margin: 0 }}>Rendiment per mesos</div>
+        <ChevronDown size={16} style={{ color: 'var(--text2)', transform: open ? 'rotate(180deg)' : 'none', transition: '.2s' }} />
+      </button>
+      {open && (
+        <div style={{ marginTop: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '6px 8px', fontSize: 11, color: 'var(--text2)', marginBottom: 6, paddingBottom: 6, borderBottom: '1px solid var(--border)' }}>
+            <span>Mes</span><span style={{ textAlign: 'right' }}>Aportat</span><span style={{ textAlign: 'right' }}>Balanç</span>
+          </div>
+          {rows.map(r => (
+            <div key={r.ym} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '4px 8px', fontSize: 13, padding: '4px 0', borderBottom: '1px solid var(--border)' }}>
+              <span style={{ color: 'var(--text2)' }}>{ym2label(r.ym)}</span>
+              <span style={{ textAlign: 'right', color: 'var(--text2)' }}>{r.added ? fmt(r.added) : '—'}</span>
+              <span style={{ textAlign: 'right', fontWeight: 600, color: pctColor(r.gain) }}>{fmt2(r.gain)}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Metric cards ──────────────────────────────────────────────────────────
+function MetricRow({ metrics }) {
+  if (!metrics) return null
+  const { currentValue, totalInvested, gain, gainPct, ytdGain, ytdPct } = metrics
+  const CARD_H = 86
+  const cardStyle = { padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 2, height: CARD_H }
 
   return (
-    <div style={gridStyle}>
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 20 }}>
       <div className="card" style={cardStyle}>
         <div style={{ fontSize: 11, color: 'var(--text2)' }}>Valor actual</div>
-        <div style={{ fontSize: 18, fontWeight: 800, marginTop: 'auto' }}>{fmt2(currentValue)}</div>
+        <div style={{ fontSize: 17, fontWeight: 800, marginTop: 'auto' }}>{fmt2(currentValue)}</div>
       </div>
       <div className="card" style={cardStyle}>
         <div style={{ fontSize: 11, color: 'var(--text2)' }}>Total invertit</div>
-        <div style={{ fontSize: 18, fontWeight: 800, marginTop: 'auto' }}>{fmt(totalInvested)}</div>
+        <div style={{ fontSize: 17, fontWeight: 800, marginTop: 'auto' }}>{fmt2(totalInvested)}</div>
       </div>
       <div className="card" style={cardStyle}>
         <div style={{ fontSize: 11, color: 'var(--text2)' }}>Balanç total</div>
@@ -214,15 +235,11 @@ function MetricRow({ metrics, selectedMonth, onMonthChange }) {
         <div style={{ fontSize: 12, color: pctColor(gainPct) }}>{fmtPct(gainPct)}</div>
       </div>
       <div className="card" style={cardStyle}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ fontSize: 11, color: 'var(--text2)' }}>Balanç mensual</div>
-          <input type="month" value={selectedMonth || ''} onChange={e => onMonthChange(e.target.value)}
-            style={{ fontSize: 10, padding: '2px 4px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg3)', color: 'var(--text2)', width: 94 }} />
-        </div>
-        {monthBalance ? (
+        <div style={{ fontSize: 11, color: 'var(--text2)' }}>YTD</div>
+        {ytdPct !== null ? (
           <>
-            <div style={{ fontSize: 15, fontWeight: 700, color: pctColor(monthBalance.gain), marginTop: 'auto' }}>{fmt2(monthBalance.gain)}</div>
-            {monthBalance.pct !== null && <div style={{ fontSize: 12, color: pctColor(monthBalance.pct) }}>{fmtPct(monthBalance.pct)}</div>}
+            <div style={{ fontSize: 15, fontWeight: 700, color: pctColor(ytdGain), marginTop: 'auto' }}>{fmt2(ytdGain)}</div>
+            <div style={{ fontSize: 12, color: pctColor(ytdPct) }}>{fmtPct(ytdPct)}</div>
           </>
         ) : (
           <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 'auto' }}>Sense dades</div>
@@ -373,7 +390,6 @@ function HistoryList({ items, renderItem, onAdd, title, emptyLabel }) {
 
 // ── Fund Detail ───────────────────────────────────────────────────────────
 function FundDetail({ fund, contributions, valuations, recFunds, colorIdx, onBack, onAddContrib, onEditContrib, onDeleteContrib, onAddVal, onEditVal, onDeleteVal, onEditFund, onDeleteFund, onAddRec, onEditRec, onToggleRec, onDeleteRec }) {
-  const [selMonth, setSelMonth] = useState(currentYM())
   const metrics = calcFundMetrics(fund, contributions, valuations)
   const chartData = buildFundChartData(fund, contributions, valuations)
   const color = COLORS[colorIdx % COLORS.length]
@@ -393,7 +409,7 @@ function FundDetail({ fund, contributions, valuations, recFunds, colorIdx, onBac
         <button className="btn-icon" style={{ color: 'var(--red)' }} onClick={onDeleteFund}><Trash2 size={17} /></button>
       </div>
 
-      <MetricRow metrics={metrics} selectedMonth={selMonth} onMonthChange={setSelMonth} />
+      <MetricRow metrics={metrics} />
       {!metrics && <p className="empty" style={{ marginBottom: 20 }}>Sense dades. Afegeix una aportació o valoració!</p>}
 
       {chartData.length > 1 && (
@@ -479,27 +495,39 @@ function FundDetail({ fund, contributions, valuations, recFunds, colorIdx, onBac
           </div>
         )}
       />
+
+      <MonthlyBreakdown
+        contributions={contributions.filter(e => e.fundId === fund.id)}
+        valuations={valuations.filter(v => v.fundId === fund.id).sort((a, b) => a.date.localeCompare(b.date))}
+        funds={null}
+      />
     </div>
   )
 }
 
 // ── Portfolio view ────────────────────────────────────────────────────────
-function PortfolioView({ funds, contributions, valuations, loading, onSelectFund, onAddFund, onRefresh }) {
-  const [selMonth, setSelMonth] = useState(currentYM())
+function PortfolioView({ funds, contributions, valuations, loading, onSelectFund, onAddFund }) {
+  const [chartMode, setChartMode] = useState('individual') // 'individual' | 'total'
   const portfolio = calcPortfolioMetrics(funds, contributions, valuations)
   const chartData = useMemo(() => buildChartData(funds, contributions, valuations), [funds, contributions, valuations])
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 4 }}>
-        <button className="btn-icon" onClick={onRefresh}><RefreshCw size={16} /></button>
-      </div>
-
-      <MetricRow metrics={portfolio} selectedMonth={selMonth} onMonthChange={setSelMonth} />
+      <MetricRow metrics={portfolio} />
 
       {chartData.length > 1 && (
         <div className="stats-section">
-          <div className="stats-title">Evolució cartera</div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <div className="stats-title" style={{ margin: 0 }}>Evolució cartera</div>
+            <div style={{ display: 'flex', background: 'var(--bg3)', borderRadius: 8, padding: 2, gap: 2 }}>
+              {[['individual', 'Per fons'], ['total', 'Total']].map(([v, l]) => (
+                <button key={v} onClick={() => setChartMode(v)}
+                  style={{ padding: '4px 10px', borderRadius: 6, fontSize: 11, border: 'none', cursor: 'pointer', background: chartMode === v ? 'var(--bg2)' : 'transparent', color: chartMode === v ? 'var(--text1)' : 'var(--text2)', fontWeight: chartMode === v ? 600 : 400, boxShadow: chartMode === v ? '0 1px 3px rgba(0,0,0,.15)' : 'none' }}>
+                  {l}
+                </button>
+              ))}
+            </div>
+          </div>
           <div style={{ width: '100%', height: 220 }}>
             <ResponsiveContainer>
               <LineChart data={chartData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
@@ -508,18 +536,28 @@ function PortfolioView({ funds, contributions, valuations, loading, onSelectFund
                 <YAxis tick={{ fill: cssVar('--chart-tick'), fontSize: 10 }} tickFormatter={v => `${v}€`} />
                 <Tooltip contentStyle={{ background: cssVar('--tooltip-bg'), border: `1px solid ${cssVar('--tooltip-border')}`, borderRadius: 8, fontSize: 12, color: cssVar('--text1') }}
                   formatter={(v, name) => [fmt2(v), name]} />
-                <Line type="monotone" dataKey="invertit" stroke={cssVar('--text2')} strokeWidth={2} strokeDasharray="5 3" dot={false} connectNulls name="Invertit total" />
-                {funds.map((f, i) => (
-                  <Line key={f.id} type="monotone" dataKey={`fons_${i}`} stroke={COLORS[i % COLORS.length]} strokeWidth={2} dot={{ r: 3, fill: COLORS[i % COLORS.length] }} connectNulls name={f.name} />
-                ))}
+                <Line type="monotone" dataKey="invertit" stroke={cssVar('--text2')} strokeWidth={2} strokeDasharray="5 3" dot={false} connectNulls name={chartMode === 'total' ? 'Invertit' : 'Invertit total'} />
+                {chartMode === 'individual'
+                  ? funds.map((f, i) => (
+                    <Line key={f.id} type="monotone" dataKey={`fons_${i}`} stroke={COLORS[i % COLORS.length]} strokeWidth={2} dot={{ r: 3, fill: COLORS[i % COLORS.length] }} connectNulls name={f.name} />
+                  ))
+                  : <Line type="monotone" dataKey="valor" stroke="var(--accent-light)" strokeWidth={2.5} dot={{ r: 3, fill: 'var(--accent-light)' }} connectNulls name="Valor real" />
+                }
               </LineChart>
             </ResponsiveContainer>
           </div>
           <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', justifyContent: 'center', fontSize: 11, color: 'var(--text2)', marginTop: 6 }}>
-            <span>— Invertit total</span>
-            {funds.map((f, i) => (
-              <span key={f.id}><span style={{ color: COLORS[i % COLORS.length] }}>■</span> {f.name}</span>
-            ))}
+            {chartMode === 'individual' ? (
+              <>
+                <span>— Invertit total</span>
+                {funds.map((f, i) => <span key={f.id}><span style={{ color: COLORS[i % COLORS.length] }}>■</span> {f.name}</span>)}
+              </>
+            ) : (
+              <>
+                <span>— Invertit</span>
+                <span><span style={{ color: 'var(--accent-light)' }}>■</span> Valor real</span>
+              </>
+            )}
           </div>
         </div>
       )}
@@ -562,12 +600,14 @@ function PortfolioView({ funds, contributions, valuations, loading, onSelectFund
             {m && (
               <div style={{ display: 'flex', gap: 16, marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)', fontSize: 12, color: 'var(--text2)' }}>
                 <span>Invertit <strong style={{ color: 'var(--text1)' }}>{fmt(m.totalInvested)}</strong></span>
-                <span>Guany <strong style={{ color: pctColor(m.gain) }}>{fmt2(m.gain)}</strong></span>
+                <span>Balanç <strong style={{ color: pctColor(m.gain) }}>{fmt2(m.gain)}</strong></span>
               </div>
             )}
           </div>
         )
       })}
+
+      <MonthlyBreakdown contributions={contributions} valuations={valuations} funds={funds} />
     </div>
   )
 }
@@ -710,7 +750,6 @@ export default function Inversions({ spreadsheetId }) {
           funds={funds} contributions={contributions} valuations={valuations} loading={loading}
           onSelectFund={(id, idx) => { setSelectedFundId(id); setSelectedFundIdx(idx) }}
           onAddFund={() => setModal('addFund')}
-          onRefresh={fetchData}
         />
       )}
 
