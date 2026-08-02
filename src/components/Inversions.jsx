@@ -298,32 +298,32 @@ function MonthlyBreakdown({ contributions, valuations, funds }) {
 function MetricRow({ metrics }) {
   if (!metrics) return null
   const { currentValue, totalInvested, gain, gainPct, ytdGain, ytdPct } = metrics
-  const cardStyle = { padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 2, marginTop: 0 }
+  const cardStyle = { padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 4, marginTop: 0 }
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gridTemplateRows: '86px 86px', gap: 10, marginBottom: 20 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 20 }}>
       <div className="card" style={cardStyle}>
         <div style={{ fontSize: 11, color: 'var(--text2)' }}>Valor actual</div>
-        <div style={{ fontSize: 17, fontWeight: 800, marginTop: 'auto' }}>{fmt2(currentValue)}</div>
+        <div style={{ fontSize: 17, fontWeight: 800 }}>{fmt2(currentValue)}</div>
       </div>
       <div className="card" style={cardStyle}>
         <div style={{ fontSize: 11, color: 'var(--text2)' }}>Total invertit</div>
-        <div style={{ fontSize: 17, fontWeight: 800, marginTop: 'auto' }}>{fmt2(totalInvested)}</div>
+        <div style={{ fontSize: 17, fontWeight: 800 }}>{fmt2(totalInvested)}</div>
       </div>
       <div className="card" style={cardStyle}>
         <div style={{ fontSize: 11, color: 'var(--text2)' }}>Balanç total</div>
-        <div style={{ fontSize: 15, fontWeight: 700, color: pctColor(gain), marginTop: 'auto' }}>{fmt2(gain)}</div>
+        <div style={{ fontSize: 15, fontWeight: 700, color: pctColor(gain) }}>{fmt2(gain)}</div>
         <div style={{ fontSize: 12, color: pctColor(gainPct) }}>{fmtPct(gainPct)}</div>
       </div>
       <div className="card" style={cardStyle}>
         <div style={{ fontSize: 11, color: 'var(--text2)' }}>YTD</div>
         {ytdPct !== null ? (
           <>
-            <div style={{ fontSize: 15, fontWeight: 700, color: pctColor(ytdGain), marginTop: 'auto' }}>{fmt2(ytdGain)}</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: pctColor(ytdGain) }}>{fmt2(ytdGain)}</div>
             <div style={{ fontSize: 12, color: pctColor(ytdPct) }}>{fmtPct(ytdPct)}</div>
           </>
         ) : (
-          <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 'auto' }}>Sense dades</div>
+          <div style={{ fontSize: 12, color: 'var(--text2)' }}>Sense dades</div>
         )}
       </div>
     </div>
