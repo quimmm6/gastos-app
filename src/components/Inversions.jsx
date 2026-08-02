@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
-import { Plus, ChevronLeft, Trash2, X, Edit2, ChevronDown, Maximize2, Minimize2 } from 'lucide-react'
+import { Plus, ChevronLeft, Trash2, X, Edit2, ChevronDown } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import {
   getFunds, addFund, updateFund, deleteFund,
@@ -162,40 +162,22 @@ function Sheet({ title, onClose, children }) {
   )
 }
 
-// ── Expandable chart wrapper ──────────────────────────────────────────────
-function ExpandableChart({ title, legend, children, height = 220 }) {
-  const [expanded, setExpanded] = useState(false)
-
-  const chartContent = (h) => (
-    <div style={{ width: '100%', height: h }}>
-      <ResponsiveContainer width="100%" height="100%">
-        {children}
-      </ResponsiveContainer>
-    </div>
-  )
-
+// ── Scrollable chart ──────────────────────────────────────────────────────
+function ScrollableChart({ data, legend, lineElements, height = 220, minPxPerPoint = 52 }) {
+  const w = Math.max(data.length * minPxPerPoint, 280)
+  const tooltipStyle = { background: cssVar('--tooltip-bg'), border: `1px solid ${cssVar('--tooltip-border')}`, borderRadius: 8, fontSize: 12, color: cssVar('--text1') }
   return (
     <>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 4 }}>
-        <button className="btn-icon" onClick={() => setExpanded(true)} style={{ color: 'var(--text2)' }}>
-          <Maximize2 size={14} />
-        </button>
+      <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+        <LineChart width={w} height={height} data={data} margin={{ top: 4, right: 12, left: -20, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke={cssVar('--chart-grid')} />
+          <XAxis dataKey="mes" tick={{ fill: cssVar('--chart-tick'), fontSize: 11 }} />
+          <YAxis tick={{ fill: cssVar('--chart-tick'), fontSize: 10 }} tickFormatter={v => `${v}€`} />
+          <Tooltip contentStyle={tooltipStyle} formatter={(v, name) => [fmt2(v), name]} />
+          {lineElements}
+        </LineChart>
       </div>
-      {chartContent(height)}
       {legend}
-      {expanded && createPortal(
-        <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'var(--bg1)', display: 'flex', flexDirection: 'column' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', borderBottom: '1px solid var(--border)' }}>
-            <div style={{ fontSize: 16, fontWeight: 700 }}>{title}</div>
-            <button className="btn-icon" onClick={() => setExpanded(false)}><Minimize2 size={18} /></button>
-          </div>
-          <div style={{ flex: 1, padding: '20px 8px' }}>
-            {chartContent('100%')}
-          </div>
-          <div style={{ padding: '12px 20px', borderTop: '1px solid var(--border)' }}>{legend}</div>
-        </div>,
-        document.body
-      )}
     </>
   )
 }
@@ -486,17 +468,12 @@ function FundDetail({ fund, contributions, valuations, recFunds, colorIdx, onBac
             valuations={valuations.filter(v => v.fundId === fund.id).sort((a, b) => a.date.localeCompare(b.date))}
             funds={null}
           />
-          <ExpandableChart title={`Evolució · ${fund.name}`} height={200}
-            legend={<div style={{ display: 'flex', gap: 14, justifyContent: 'center', fontSize: 11, color: 'var(--text2)', marginTop: 6 }}><span>— Invertit</span><span><span style={{ color }}>■</span> Valor real</span></div>}>
-            <LineChart data={chartData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke={cssVar('--chart-grid')} />
-              <XAxis dataKey="mes" tick={{ fill: cssVar('--chart-tick'), fontSize: 11 }} />
-              <YAxis tick={{ fill: cssVar('--chart-tick'), fontSize: 10 }} tickFormatter={v => `${v}€`} />
-              <Tooltip contentStyle={{ background: cssVar('--tooltip-bg'), border: `1px solid ${cssVar('--tooltip-border')}`, borderRadius: 8, fontSize: 12, color: cssVar('--text1') }} formatter={(v, name) => [fmt2(v), name]} />
-              <Line type="monotone" dataKey="invertit" name="Invertit" stroke={cssVar('--text2')} strokeWidth={2} strokeDasharray="4 2" dot={false} connectNulls />
-              <Line type="monotone" dataKey="valor" name="Valor real" stroke={color} strokeWidth={2.5} dot={{ r: 3.5, fill: color }} connectNulls />
-            </LineChart>
-          </ExpandableChart>
+          <ScrollableChart data={chartData} height={200}
+            legend={<div style={{ display: 'flex', gap: 14, justifyContent: 'center', fontSize: 11, color: 'var(--text2)', marginTop: 6 }}><span>— Invertit</span><span><span style={{ color }}>■</span> Valor real</span></div>}
+            lineElements={[
+              <Line key="inv" type="monotone" dataKey="invertit" name="Invertit" stroke={cssVar('--text2')} strokeWidth={2} strokeDasharray="4 2" dot={false} connectNulls />,
+              <Line key="val" type="monotone" dataKey="valor" name="Valor real" stroke={color} strokeWidth={2.5} dot={{ r: 3.5, fill: color }} connectNulls />,
+            ]} />
         </div>
       )}
 
@@ -589,7 +566,7 @@ function PortfolioView({ funds, contributions, valuations, loading, onSelectFund
             </div>
           </div>
           <MonthlyBreakdown contributions={contributions} valuations={valuations} funds={funds} />
-          <ExpandableChart title="Evolució cartera"
+          <ScrollableChart data={chartData}
             legend={
               <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', justifyContent: 'center', fontSize: 11, color: 'var(--text2)', marginTop: 6 }}>
                 {chartMode === 'individual'
@@ -597,24 +574,18 @@ function PortfolioView({ funds, contributions, valuations, loading, onSelectFund
                   : <><span>— Invertit</span><span><span style={{ color: 'var(--accent-light)' }}>■</span> Valor real</span></>
                 }
               </div>
-            }>
-            <LineChart data={chartData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke={cssVar('--chart-grid')} />
-              <XAxis dataKey="mes" tick={{ fill: cssVar('--chart-tick'), fontSize: 11 }} />
-              <YAxis tick={{ fill: cssVar('--chart-tick'), fontSize: 10 }} tickFormatter={v => `${v}€`} />
-              <Tooltip contentStyle={{ background: cssVar('--tooltip-bg'), border: `1px solid ${cssVar('--tooltip-border')}`, borderRadius: 8, fontSize: 12, color: cssVar('--text1') }} formatter={(v, name) => [fmt2(v), name]} />
-              {chartMode === 'individual'
-                ? funds.flatMap((f, i) => [
-                  <Line key={`inv_${i}`} type="monotone" dataKey={`inv_${i}`} stroke={COLORS[i % COLORS.length]} strokeWidth={1.5} strokeDasharray="5 3" dot={false} connectNulls name={`${f.name} inv.`} />,
-                  <Line key={`fons_${i}`} type="monotone" dataKey={`fons_${i}`} stroke={COLORS[i % COLORS.length]} strokeWidth={2} dot={{ r: 3, fill: COLORS[i % COLORS.length] }} connectNulls name={f.name} />,
-                ])
-                : [
-                  <Line key="invertit" type="monotone" dataKey="invertit" stroke={cssVar('--text2')} strokeWidth={2} strokeDasharray="5 3" dot={false} connectNulls name="Invertit" />,
-                  <Line key="valor" type="monotone" dataKey="valor" stroke="var(--accent-light)" strokeWidth={2.5} dot={{ r: 3, fill: 'var(--accent-light)' }} connectNulls name="Valor real" />,
-                ]
-              }
-            </LineChart>
-          </ExpandableChart>
+            }
+            lineElements={chartMode === 'individual'
+              ? funds.flatMap((f, i) => [
+                <Line key={`inv_${i}`} type="monotone" dataKey={`inv_${i}`} stroke={COLORS[i % COLORS.length]} strokeWidth={1.5} strokeDasharray="5 3" dot={false} connectNulls name={`${f.name} inv.`} />,
+                <Line key={`fons_${i}`} type="monotone" dataKey={`fons_${i}`} stroke={COLORS[i % COLORS.length]} strokeWidth={2} dot={{ r: 3, fill: COLORS[i % COLORS.length] }} connectNulls name={f.name} />,
+              ])
+              : [
+                <Line key="invertit" type="monotone" dataKey="invertit" stroke={cssVar('--text2')} strokeWidth={2} strokeDasharray="5 3" dot={false} connectNulls name="Invertit" />,
+                <Line key="valor" type="monotone" dataKey="valor" stroke="var(--accent-light)" strokeWidth={2.5} dot={{ r: 3, fill: 'var(--accent-light)' }} connectNulls name="Valor real" />,
+              ]
+            }
+          />
         </div>
       )}
 
