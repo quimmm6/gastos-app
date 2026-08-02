@@ -233,7 +233,7 @@ function MonthlyBreakdown({ contributions, valuations, funds }) {
 function MetricRow({ metrics }) {
   if (!metrics) return null
   const { currentValue, totalInvested, gain, gainPct, ytdGain, ytdPct } = metrics
-  const cardStyle = { padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 2 }
+  const cardStyle = { padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 2, marginTop: 0 }
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gridTemplateRows: '86px 86px', gap: 10, marginBottom: 20 }}>
