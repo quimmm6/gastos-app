@@ -162,20 +162,45 @@ function Sheet({ title, onClose, children }) {
   )
 }
 
-// ── Scrollable chart ──────────────────────────────────────────────────────
-function ScrollableChart({ data, legend, lineElements, height = 220, minPxPerPoint = 52 }) {
-  const w = Math.max(data.length * minPxPerPoint, 280)
+// ── Period-filtered chart ─────────────────────────────────────────────────
+const PERIODS = [
+  { key: '3m', label: '3M', months: 3 },
+  { key: '6m', label: '6M', months: 6 },
+  { key: '1a', label: '1A', months: 12 },
+  { key: 'tot', label: 'Tot', months: null },
+]
+
+function PeriodChart({ data, legend, lineElements, height = 220 }) {
+  const [period, setPeriod] = useState('tot')
+
+  const filtered = useMemo(() => {
+    const p = PERIODS.find(p => p.key === period)
+    if (!p?.months) return data
+    return data.slice(-p.months)
+  }, [data, period])
+
   const tooltipStyle = { background: cssVar('--tooltip-bg'), border: `1px solid ${cssVar('--tooltip-border')}`, borderRadius: 8, fontSize: 12, color: cssVar('--text1') }
+
   return (
     <>
-      <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-        <LineChart width={w} height={height} data={data} margin={{ top: 4, right: 12, left: -20, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke={cssVar('--chart-grid')} />
-          <XAxis dataKey="mes" tick={{ fill: cssVar('--chart-tick'), fontSize: 11 }} />
-          <YAxis tick={{ fill: cssVar('--chart-tick'), fontSize: 10 }} tickFormatter={v => `${v}€`} />
-          <Tooltip contentStyle={tooltipStyle} formatter={(v, name) => [fmt2(v), name]} />
-          {lineElements}
-        </LineChart>
+      <div style={{ display: 'flex', gap: 4, marginBottom: 10 }}>
+        {PERIODS.map(p => (
+          <button key={p.key} onClick={() => setPeriod(p.key)}
+            style={{ flex: 1, padding: '4px 0', borderRadius: 8, fontSize: 12, border: 'none', cursor: 'pointer', fontWeight: period === p.key ? 700 : 400, background: period === p.key ? 'var(--accent)' : 'var(--bg3)', color: period === p.key ? '#fff' : 'var(--text2)' }}>
+            {p.label}
+          </button>
+        ))}
+      </div>
+      <div style={{ width: '100%', height }}>
+        <ResponsiveContainer>
+          <LineChart data={filtered} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke={cssVar('--chart-grid')} />
+            <XAxis dataKey="mes" tick={{ fill: cssVar('--chart-tick'), fontSize: 11 }} />
+            <YAxis tick={{ fill: cssVar('--chart-tick'), fontSize: 10 }} tickFormatter={v => `${v}€`} />
+            <Tooltip contentStyle={tooltipStyle} formatter={(v, name) => [fmt2(v), name]} />
+            {lineElements}
+          </LineChart>
+        </ResponsiveContainer>
       </div>
       {legend}
     </>
@@ -468,7 +493,7 @@ function FundDetail({ fund, contributions, valuations, recFunds, colorIdx, onBac
             valuations={valuations.filter(v => v.fundId === fund.id).sort((a, b) => a.date.localeCompare(b.date))}
             funds={null}
           />
-          <ScrollableChart data={chartData} height={200}
+          <PeriodChart data={chartData} height={200}
             legend={<div style={{ display: 'flex', gap: 14, justifyContent: 'center', fontSize: 11, color: 'var(--text2)', marginTop: 6 }}><span>— Invertit</span><span><span style={{ color }}>■</span> Valor real</span></div>}
             lineElements={[
               <Line key="inv" type="monotone" dataKey="invertit" name="Invertit" stroke={cssVar('--text2')} strokeWidth={2} strokeDasharray="4 2" dot={false} connectNulls />,
@@ -566,7 +591,7 @@ function PortfolioView({ funds, contributions, valuations, loading, onSelectFund
             </div>
           </div>
           <MonthlyBreakdown contributions={contributions} valuations={valuations} funds={funds} />
-          <ScrollableChart data={chartData}
+          <PeriodChart data={chartData}
             legend={
               <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', justifyContent: 'center', fontSize: 11, color: 'var(--text2)', marginTop: 6 }}>
                 {chartMode === 'individual'
