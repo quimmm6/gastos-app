@@ -477,6 +477,49 @@ export async function deleteInvEntry(spreadsheetId, id) {
   await deleteRowById(spreadsheetId, ENTRIES_SHEET, 'A', id)
 }
 
+// ValFons: separate fund valuations (date → value, independent of contributions)
+const VAL_SHEET = 'ValFons'
+
+export async function getInvValuations(spreadsheetId) {
+  try {
+    await ensureSheet(spreadsheetId, VAL_SHEET, ['ID', 'FonsID', 'Data', 'Valor'])
+    const res = await window.gapi.client.sheets.spreadsheets.values.get({
+      spreadsheetId, range: `${VAL_SHEET}!A2:D`,
+    })
+    return (res.result.values || []).map(r => ({
+      id: r[0] || '', fundId: r[1] || '', date: r[2] || '', value: parseNum(r[3]),
+    })).filter(e => e.id && e.fundId)
+  } catch { return [] }
+}
+
+export async function addInvValuation(spreadsheetId, val) {
+  await ensureSheet(spreadsheetId, VAL_SHEET, ['ID', 'FonsID', 'Data', 'Valor'])
+  const id = Date.now().toString(36) + Math.random().toString(36).slice(2)
+  await window.gapi.client.sheets.spreadsheets.values.append({
+    spreadsheetId, range: `${VAL_SHEET}!A:D`, valueInputOption: 'RAW',
+    resource: { values: [[id, val.fundId, val.date, val.value]] },
+  })
+  return { ...val, id }
+}
+
+export async function updateInvValuation(spreadsheetId, val) {
+  const res = await window.gapi.client.sheets.spreadsheets.values.get({
+    spreadsheetId, range: `${VAL_SHEET}!A:A`,
+  })
+  const rows = res.result.values || []
+  const rowIndex = rows.findIndex(r => r[0] === val.id)
+  if (rowIndex < 1) return
+  await window.gapi.client.sheets.spreadsheets.values.update({
+    spreadsheetId, range: `${VAL_SHEET}!A${rowIndex+1}:D${rowIndex+1}`,
+    valueInputOption: 'RAW',
+    resource: { values: [[val.id, val.fundId, val.date, val.value]] },
+  })
+}
+
+export async function deleteInvValuation(spreadsheetId, id) {
+  await deleteRowById(spreadsheetId, VAL_SHEET, 'A', id)
+}
+
 export async function updateInvEntry(spreadsheetId, entry) {
   const res = await window.gapi.client.sheets.spreadsheets.values.get({
     spreadsheetId, range: `${ENTRIES_SHEET}!A:A`,
@@ -567,10 +610,7 @@ export async function applyRecurringContributions(spreadsheetId) {
         if (isDue) {
           const alreadyExists = existingEntries.some(e => e.fundId === rec.fundId && e.date.startsWith(ym) && e.amountAdded === rec.importe)
           if (!alreadyExists) {
-            // Carry forward last known value
-            const fundEntries = existingEntries.filter(e => e.fundId === rec.fundId && e.date < fecha).sort((a, b) => a.date.localeCompare(b.date))
-            const lastValue = fundEntries.length ? fundEntries[fundEntries.length - 1].currentValue : 0
-            const entry = await addInvEntry(spreadsheetId, { fundId: rec.fundId, date: fecha, amountAdded: rec.importe, currentValue: lastValue })
+            const entry = await addInvEntry(spreadsheetId, { fundId: rec.fundId, date: fecha, amountAdded: rec.importe, currentValue: 0 })
             existingEntries.push(entry)
             added.push(entry)
           }
