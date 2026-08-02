@@ -386,7 +386,7 @@ button { cursor: pointer; }
   gap: 4px;
   margin-bottom: 14px;
 }
-.filter-grid .filter-chip { flex: none; font-size: 10px; padding: 5px 2px; }
+.filter-grid .filter-chip { flex: none; font-size: 10px; padding: 5px 2px; width: 100%; }
 .filter-grid .cat-btn {
   grid-row: span 2;
   border-radius: 14px;
