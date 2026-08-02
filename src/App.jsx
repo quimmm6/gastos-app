@@ -1,21 +1,22 @@
 import { useState, useEffect, useCallback, useRef, startTransition } from 'react'
 import { createPortal } from 'react-dom'
-import { Home, List, BarChart2, Tag, Plus, LogOut, Moon, Sun, LayoutDashboard } from 'lucide-react'
+import { Home, List, BarChart2, Tag, Plus, LogOut, Moon, Sun, LayoutDashboard, TrendingUp } from 'lucide-react'
 import { loadGoogleAPIs, signIn, signOut, isSignedIn, getUserEmail, initSheet, getTransactions, getCategories, saveCategories, applyRecurrents, addRecurrent } from './services/googleSheets'
 import { DEMO_TRANSACTIONS, DEMO_CATEGORIES, DEMO_RECURRENTS } from './demoData'
 import Dashboard from './components/Dashboard'
 import AddTransaction from './components/AddTransaction'
 import TransactionList from './components/TransactionList'
 import Stats from './components/Stats'
+import Inversions from './components/Inversions'
 import Categories from './components/Categories'
 import Setup from './components/Setup'
 import Logo from './components/Logo'
 import BottomSheet from './components/BottomSheet'
 import './App.css'
 
-const TABS = ['add', 'inicio', 'lista', 'stats', 'cats']
-const TAB_ICONS = { add: Plus, inicio: LayoutDashboard, lista: List, stats: BarChart2, cats: Tag }
-const TAB_NAMES = { add: 'Afegir', inicio: 'Resum', lista: 'Llista', stats: 'Stats', cats: 'Cats' }
+const TABS = ['add', 'inicio', 'lista', 'stats', 'inv', 'cats']
+const TAB_ICONS = { add: Plus, inicio: LayoutDashboard, lista: List, stats: BarChart2, inv: TrendingUp, cats: Tag }
+const TAB_NAMES = { add: 'Afegir', inicio: 'Resum', lista: 'Llista', stats: 'Stats', inv: 'Inv.', cats: 'Cats' }
 
 const DEFAULT_CATS = {
   gasto: [
@@ -278,6 +279,7 @@ export default function App() {
             {tab === 'inicio' && <Dashboard transactions={transactions} loading={loading} onRefresh={demoMode ? () => {} : fetchTransactions} categories={categories} spreadsheetId={config?.spreadsheetId} onDeleted={demoMode ? () => {} : onTransactionDeleted} onUpdated={demoMode ? () => {} : onTransactionUpdated} readOnly={demoMode} />}
             {tab === 'lista' && <TransactionList transactions={transactions} spreadsheetId={config?.spreadsheetId} onDeleted={demoMode ? () => {} : onTransactionDeleted} onUpdated={demoMode ? () => {} : onTransactionUpdated} loading={loading} categories={categories} readOnly={demoMode} demoRecurrents={demoMode ? DEMO_RECURRENTS : null} />}
             {tab === 'stats' && <Stats transactions={transactions} />}
+            {tab === 'inv' && <Inversions />}
             {tab === 'cats' && <Categories categories={categories} onSave={demoMode ? () => {} : handleSaveCats} transactions={transactions} spreadsheetId={config?.spreadsheetId} onReassigned={demoMode ? () => {} : onCategoryReassigned} readOnly={demoMode} />}
           </div>
         </main>
