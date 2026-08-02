@@ -16,7 +16,7 @@ import './App.css'
 
 const ALL_TABS = ['add', 'inicio', 'lista', 'stats', 'inv']
 const TAB_ICONS = { add: Plus, inicio: LayoutDashboard, lista: List, stats: BarChart2, inv: TrendingUp }
-const TAB_NAMES = { add: 'Afegir', inicio: 'Resum', lista: 'Llista', stats: 'Stats', inv: 'Inv.' }
+const TAB_NAMES = { add: 'Afegir', inicio: 'Resum', lista: 'Llista', stats: 'Stats', inv: 'Inversions' }
 
 const DEFAULT_CATS = {
   gasto: [
