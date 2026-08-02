@@ -183,12 +183,13 @@ function MonthlyBreakdown({ contributions, valuations, funds }) {
           return calcMonthBalance(cs, vs, ym)
         })
         if (!perFund.some(Boolean)) return null
-        return { ym, perFund }
+        const totalGain = perFund.reduce((s, r) => s + (r ? r.gain : 0), 0)
+        return { ym, perFund, totalGain }
       } else {
         const sortedVs = [...valuations].sort((a, b) => a.date.localeCompare(b.date))
         const r = calcMonthBalance(contributions, sortedVs, ym)
         if (!r) return null
-        return { ym, perFund: [r] }
+        return { ym, perFund: [r], totalGain: r.gain }
       }
     }).filter(Boolean)
 
@@ -197,8 +198,10 @@ function MonthlyBreakdown({ contributions, valuations, funds }) {
 
   if (!rows.length) return null
 
-  const cols = fundList.length > 0 ? fundList : [null]
-  const gridCols = `56px ${cols.map(() => '1fr').join(' ')}`
+  const isPortfolio = fundList.length > 0
+  const cols = isPortfolio ? fundList : [null]
+  // Mes | fund1% | fund2% | ... | Total€
+  const gridCols = `50px ${cols.map(() => '1fr').join(' ')} 60px`
 
   return (
     <div style={{ marginBottom: 12 }}>
@@ -212,6 +215,7 @@ function MonthlyBreakdown({ contributions, valuations, funds }) {
           <div style={{ display: 'grid', gridTemplateColumns: gridCols, gap: '4px 6px', fontSize: 10, color: 'var(--text2)', marginBottom: 4, paddingBottom: 4, borderBottom: '1px solid var(--border)' }}>
             <span>Mes</span>
             {cols.map((f, i) => <span key={i} style={{ textAlign: 'right', color: f ? COLORS[i % COLORS.length] : 'var(--text2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f ? f.name : '%'}</span>)}
+            <span style={{ textAlign: 'right' }}>Total</span>
           </div>
           {rows.map(r => (
             <div key={r.ym} style={{ display: 'grid', gridTemplateColumns: gridCols, gap: '3px 6px', fontSize: 11, padding: '2px 0' }}>
@@ -221,6 +225,7 @@ function MonthlyBreakdown({ contributions, valuations, funds }) {
                   {res ? (res.pct !== null ? fmtPct(res.pct) : fmt2(res.gain)) : '—'}
                 </span>
               ))}
+              <span style={{ textAlign: 'right', fontWeight: 600, color: pctColor(r.totalGain) }}>{fmt2(r.totalGain)}</span>
             </div>
           ))}
         </div>
