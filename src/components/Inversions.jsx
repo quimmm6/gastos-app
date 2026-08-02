@@ -108,7 +108,9 @@ function buildChartData(funds, contributions, valuations) {
     const point = { mes: ym2label(ym) }
     funds.forEach((f, i) => {
       const cs = contributions.filter(e => e.fundId === f.id && e.date.slice(0, 7) <= ym)
-      totalInvested += cs.reduce((s, e) => s + e.amountAdded, 0)
+      const fundInvested = cs.reduce((s, e) => s + e.amountAdded, 0)
+      totalInvested += fundInvested
+      point[`inv_${i}`] = Math.round(fundInvested * 100) / 100
       const vs = valuations.filter(v => v.fundId === f.id && v.date.slice(0, 7) <= ym).sort((a, b) => a.date.localeCompare(b.date))
       const legVs = contributions.filter(e => e.fundId === f.id && e.date.slice(0, 7) <= ym && e.currentValue > 0).sort((a, b) => a.date.localeCompare(b.date))
       const allV = vs.length ? vs : legVs.map(e => ({ value: e.currentValue }))
@@ -160,50 +162,65 @@ function Sheet({ title, onClose, children }) {
   )
 }
 
-// ── Monthly breakdown table ───────────────────────────────────────────────
+// ── Monthly breakdown (compact, % per fund) ───────────────────────────────
 function MonthlyBreakdown({ contributions, valuations, funds }) {
   const [open, setOpen] = useState(false)
-  const rows = useMemo(() => {
+
+  const { rows, fundList } = useMemo(() => {
+    const fundList = funds || []
+    const isPortfolio = fundList.length > 0
+
     const allYMs = [...new Set([
       ...contributions.map(e => e.date.slice(0, 7)),
       ...valuations.map(v => v.date.slice(0, 7)),
     ])].sort().reverse()
 
-    return allYMs.map(ym => {
-      let totalGain = 0, hasSomeVal = false
-      ;(funds || []).forEach(f => {
-        const cs = contributions.filter(e => e.fundId === f.id)
-        const vs = valuations.filter(v => v.fundId === f.id).sort((a, b) => a.date.localeCompare(b.date))
-        const r = calcMonthBalance(cs, vs, ym)
-        if (r) { totalGain += r.gain; hasSomeVal = true }
-      })
-      // If no funds (single-fund view), contributions/valuations are already filtered
-      if (!funds) {
-        const r = calcMonthBalance(contributions, valuations, ym)
-        if (r) { totalGain = r.gain; hasSomeVal = true }
+    const rows = allYMs.map(ym => {
+      if (isPortfolio) {
+        const perFund = fundList.map(f => {
+          const cs = contributions.filter(e => e.fundId === f.id)
+          const vs = valuations.filter(v => v.fundId === f.id).sort((a, b) => a.date.localeCompare(b.date))
+          return calcMonthBalance(cs, vs, ym)
+        })
+        if (!perFund.some(Boolean)) return null
+        return { ym, perFund }
+      } else {
+        const sortedVs = [...valuations].sort((a, b) => a.date.localeCompare(b.date))
+        const r = calcMonthBalance(contributions, sortedVs, ym)
+        if (!r) return null
+        return { ym, perFund: [r] }
       }
-      const added = contributions.filter(e => e.date.slice(0, 7) === ym).reduce((s, e) => s + e.amountAdded, 0)
-      return hasSomeVal ? { ym, gain: totalGain, added } : null
     }).filter(Boolean)
+
+    return { rows, fundList }
   }, [contributions, valuations, funds])
 
   if (!rows.length) return null
+
+  const cols = fundList.length > 0 ? fundList : [null]
+  const gridCols = `56px ${cols.map(() => '1fr').join(' ')}`
+
   return (
-    <div className="stats-section">
-      <button onClick={() => setOpen(o => !o)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-        <div className="stats-title" style={{ margin: 0 }}>Rendiment per mesos</div>
-        <ChevronDown size={16} style={{ color: 'var(--text2)', transform: open ? 'rotate(180deg)' : 'none', transition: '.2s' }} />
+    <div style={{ marginBottom: 12 }}>
+      <button onClick={() => setOpen(o => !o)}
+        style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', padding: '4px 0', color: 'var(--text2)', fontSize: 11 }}>
+        <ChevronDown size={12} style={{ transform: open ? 'rotate(180deg)' : 'none', transition: '.2s', flexShrink: 0 }} />
+        Rendiment per mesos
       </button>
       {open && (
-        <div style={{ marginTop: 12 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '6px 8px', fontSize: 11, color: 'var(--text2)', marginBottom: 6, paddingBottom: 6, borderBottom: '1px solid var(--border)' }}>
-            <span>Mes</span><span style={{ textAlign: 'right' }}>Aportat</span><span style={{ textAlign: 'right' }}>Balanç</span>
+        <div style={{ marginTop: 6, padding: '8px 10px', background: 'var(--bg3)', borderRadius: 10 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: gridCols, gap: '4px 6px', fontSize: 10, color: 'var(--text2)', marginBottom: 4, paddingBottom: 4, borderBottom: '1px solid var(--border)' }}>
+            <span>Mes</span>
+            {cols.map((f, i) => <span key={i} style={{ textAlign: 'right', color: f ? COLORS[i % COLORS.length] : 'var(--text2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f ? f.name : '%'}</span>)}
           </div>
           {rows.map(r => (
-            <div key={r.ym} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '4px 8px', fontSize: 13, padding: '4px 0', borderBottom: '1px solid var(--border)' }}>
+            <div key={r.ym} style={{ display: 'grid', gridTemplateColumns: gridCols, gap: '3px 6px', fontSize: 11, padding: '2px 0' }}>
               <span style={{ color: 'var(--text2)' }}>{ym2label(r.ym)}</span>
-              <span style={{ textAlign: 'right', color: 'var(--text2)' }}>{r.added ? fmt(r.added) : '—'}</span>
-              <span style={{ textAlign: 'right', fontWeight: 600, color: pctColor(r.gain) }}>{fmt2(r.gain)}</span>
+              {r.perFund.map((res, i) => (
+                <span key={i} style={{ textAlign: 'right', fontWeight: 500, color: res ? pctColor(res.pct ?? res.gain) : 'var(--text2)' }}>
+                  {res ? (res.pct !== null ? fmtPct(res.pct) : fmt2(res.gain)) : '—'}
+                </span>
+              ))}
             </div>
           ))}
         </div>
@@ -216,11 +233,10 @@ function MonthlyBreakdown({ contributions, valuations, funds }) {
 function MetricRow({ metrics }) {
   if (!metrics) return null
   const { currentValue, totalInvested, gain, gainPct, ytdGain, ytdPct } = metrics
-  const CARD_H = 86
-  const cardStyle = { padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 2, height: CARD_H }
+  const cardStyle = { padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 2 }
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 20 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gridTemplateRows: '86px 86px', gap: 10, marginBottom: 20 }}>
       <div className="card" style={cardStyle}>
         <div style={{ fontSize: 11, color: 'var(--text2)' }}>Valor actual</div>
         <div style={{ fontSize: 17, fontWeight: 800, marginTop: 'auto' }}>{fmt2(currentValue)}</div>
@@ -414,7 +430,14 @@ function FundDetail({ fund, contributions, valuations, recFunds, colorIdx, onBac
 
       {chartData.length > 1 && (
         <div className="stats-section">
-          <div className="stats-title">Evolució</div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+            <div className="stats-title" style={{ margin: 0 }}>Evolució</div>
+          </div>
+          <MonthlyBreakdown
+            contributions={contributions.filter(e => e.fundId === fund.id)}
+            valuations={valuations.filter(v => v.fundId === fund.id).sort((a, b) => a.date.localeCompare(b.date))}
+            funds={null}
+          />
           <div style={{ width: '100%', height: 200 }}>
             <ResponsiveContainer>
               <LineChart data={chartData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
@@ -496,11 +519,6 @@ function FundDetail({ fund, contributions, valuations, recFunds, colorIdx, onBac
         )}
       />
 
-      <MonthlyBreakdown
-        contributions={contributions.filter(e => e.fundId === fund.id)}
-        valuations={valuations.filter(v => v.fundId === fund.id).sort((a, b) => a.date.localeCompare(b.date))}
-        funds={null}
-      />
     </div>
   )
 }
@@ -517,7 +535,7 @@ function PortfolioView({ funds, contributions, valuations, loading, onSelectFund
 
       {chartData.length > 1 && (
         <div className="stats-section">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
             <div className="stats-title" style={{ margin: 0 }}>Evolució cartera</div>
             <div style={{ display: 'flex', background: 'var(--bg3)', borderRadius: 8, padding: 2, gap: 2 }}>
               {[['individual', 'Per fons'], ['total', 'Total']].map(([v, l]) => (
@@ -528,6 +546,7 @@ function PortfolioView({ funds, contributions, valuations, loading, onSelectFund
               ))}
             </div>
           </div>
+          <MonthlyBreakdown contributions={contributions} valuations={valuations} funds={funds} />
           <div style={{ width: '100%', height: 220 }}>
             <ResponsiveContainer>
               <LineChart data={chartData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
@@ -536,28 +555,24 @@ function PortfolioView({ funds, contributions, valuations, loading, onSelectFund
                 <YAxis tick={{ fill: cssVar('--chart-tick'), fontSize: 10 }} tickFormatter={v => `${v}€`} />
                 <Tooltip contentStyle={{ background: cssVar('--tooltip-bg'), border: `1px solid ${cssVar('--tooltip-border')}`, borderRadius: 8, fontSize: 12, color: cssVar('--text1') }}
                   formatter={(v, name) => [fmt2(v), name]} />
-                <Line type="monotone" dataKey="invertit" stroke={cssVar('--text2')} strokeWidth={2} strokeDasharray="5 3" dot={false} connectNulls name={chartMode === 'total' ? 'Invertit' : 'Invertit total'} />
                 {chartMode === 'individual'
-                  ? funds.map((f, i) => (
-                    <Line key={f.id} type="monotone" dataKey={`fons_${i}`} stroke={COLORS[i % COLORS.length]} strokeWidth={2} dot={{ r: 3, fill: COLORS[i % COLORS.length] }} connectNulls name={f.name} />
-                  ))
-                  : <Line type="monotone" dataKey="valor" stroke="var(--accent-light)" strokeWidth={2.5} dot={{ r: 3, fill: 'var(--accent-light)' }} connectNulls name="Valor real" />
+                  ? funds.flatMap((f, i) => [
+                    <Line key={`inv_${i}`} type="monotone" dataKey={`inv_${i}`} stroke={COLORS[i % COLORS.length]} strokeWidth={1.5} strokeDasharray="5 3" dot={false} connectNulls name={`${f.name} inv.`} />,
+                    <Line key={`fons_${i}`} type="monotone" dataKey={`fons_${i}`} stroke={COLORS[i % COLORS.length]} strokeWidth={2} dot={{ r: 3, fill: COLORS[i % COLORS.length] }} connectNulls name={f.name} />,
+                  ])
+                  : [
+                    <Line key="invertit" type="monotone" dataKey="invertit" stroke={cssVar('--text2')} strokeWidth={2} strokeDasharray="5 3" dot={false} connectNulls name="Invertit" />,
+                    <Line key="valor" type="monotone" dataKey="valor" stroke="var(--accent-light)" strokeWidth={2.5} dot={{ r: 3, fill: 'var(--accent-light)' }} connectNulls name="Valor real" />,
+                  ]
                 }
               </LineChart>
             </ResponsiveContainer>
           </div>
           <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', justifyContent: 'center', fontSize: 11, color: 'var(--text2)', marginTop: 6 }}>
-            {chartMode === 'individual' ? (
-              <>
-                <span>— Invertit total</span>
-                {funds.map((f, i) => <span key={f.id}><span style={{ color: COLORS[i % COLORS.length] }}>■</span> {f.name}</span>)}
-              </>
-            ) : (
-              <>
-                <span>— Invertit</span>
-                <span><span style={{ color: 'var(--accent-light)' }}>■</span> Valor real</span>
-              </>
-            )}
+            {chartMode === 'individual'
+              ? funds.map((f, i) => <span key={f.id}><span style={{ color: COLORS[i % COLORS.length] }}>■</span> {f.name}</span>)
+              : <><span style={{ color: 'var(--text2)' }}>— Invertit</span><span><span style={{ color: 'var(--accent-light)' }}>■</span> Valor real</span></>
+            }
           </div>
         </div>
       )}
@@ -606,8 +621,6 @@ function PortfolioView({ funds, contributions, valuations, loading, onSelectFund
           </div>
         )
       })}
-
-      <MonthlyBreakdown contributions={contributions} valuations={valuations} funds={funds} />
     </div>
   )
 }
