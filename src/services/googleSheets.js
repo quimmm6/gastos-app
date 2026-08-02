@@ -476,3 +476,93 @@ export async function addInvEntry(spreadsheetId, entry) {
 export async function deleteInvEntry(spreadsheetId, id) {
   await deleteRowById(spreadsheetId, ENTRIES_SHEET, 'A', id)
 }
+
+export async function updateInvEntry(spreadsheetId, entry) {
+  const res = await window.gapi.client.sheets.spreadsheets.values.get({
+    spreadsheetId, range: `${ENTRIES_SHEET}!A:A`,
+  })
+  const rows = res.result.values || []
+  const rowIndex = rows.findIndex(r => r[0] === entry.id)
+  if (rowIndex < 1) return
+  await window.gapi.client.sheets.spreadsheets.values.update({
+    spreadsheetId, range: `${ENTRIES_SHEET}!A${rowIndex + 1}:E${rowIndex + 1}`,
+    valueInputOption: 'RAW',
+    resource: { values: [[entry.id, entry.fundId, entry.date, entry.amountAdded, entry.currentValue]] },
+  })
+}
+
+const REC_FUNDS_SHEET = 'RecFons'
+
+export async function getRecFunds(spreadsheetId) {
+  try {
+    await ensureSheet(spreadsheetId, REC_FUNDS_SHEET, ['ID', 'FonsID', 'Dia', 'Inici', 'Import'])
+    const res = await window.gapi.client.sheets.spreadsheets.values.get({
+      spreadsheetId, range: `${REC_FUNDS_SHEET}!A2:E`,
+    })
+    return (res.result.values || []).map(r => ({
+      id: r[0] || '', fundId: r[1] || '', dia: r[2] || '1', inici: r[3] || '', importe: parseNum(r[4]),
+    })).filter(r => r.id && r.fundId)
+  } catch { return [] }
+}
+
+export async function addRecFund(spreadsheetId, rec) {
+  await ensureSheet(spreadsheetId, REC_FUNDS_SHEET, ['ID', 'FonsID', 'Dia', 'Inici', 'Import'])
+  const id = Date.now().toString(36) + Math.random().toString(36).slice(2)
+  await window.gapi.client.sheets.spreadsheets.values.append({
+    spreadsheetId, range: `${REC_FUNDS_SHEET}!A:E`, valueInputOption: 'RAW',
+    resource: { values: [[id, rec.fundId, rec.dia, rec.inici, rec.importe]] },
+  })
+  return { ...rec, id }
+}
+
+export async function deleteRecFund(spreadsheetId, id) {
+  await deleteRowById(spreadsheetId, REC_FUNDS_SHEET, 'A', id)
+}
+
+function daysInMonthInv(y, m) { return new Date(y, m, 0).getDate() }
+function resolveDayInv(dia, y, m) {
+  const raw = String(dia).toUpperCase().trim()
+  if (raw === 'P') return 1
+  if (raw === 'U') return daysInMonthInv(y, m)
+  return Math.min(parseInt(raw) || 1, daysInMonthInv(y, m))
+}
+
+export async function applyRecurringContributions(spreadsheetId) {
+  try {
+    const [recs, existingEntries] = await Promise.all([
+      getRecFunds(spreadsheetId),
+      getInvEntries(spreadsheetId),
+    ])
+    if (!recs.length) return []
+
+    const now = new Date()
+    const curYear = now.getFullYear(), curMonth = now.getMonth() + 1, curDay = now.getDate()
+    const added = []
+
+    for (const rec of recs) {
+      const [iy, im] = rec.inici.split('-').map(Number)
+      if (!iy || !im) continue
+      let y = iy, m = im
+      while (y < curYear || (y === curYear && m <= curMonth)) {
+        const realDay = resolveDayInv(rec.dia, y, m)
+        const ym = `${y}-${String(m).padStart(2, '0')}`
+        const fecha = `${ym}-${String(realDay).padStart(2, '0')}`
+        const isCurrent = y === curYear && m === curMonth
+        const isDue = !isCurrent || curDay >= realDay
+        if (isDue) {
+          const alreadyExists = existingEntries.some(e => e.fundId === rec.fundId && e.date.startsWith(ym) && e.amountAdded === rec.importe)
+          if (!alreadyExists) {
+            // Carry forward last known value
+            const fundEntries = existingEntries.filter(e => e.fundId === rec.fundId && e.date < fecha).sort((a, b) => a.date.localeCompare(b.date))
+            const lastValue = fundEntries.length ? fundEntries[fundEntries.length - 1].currentValue : 0
+            const entry = await addInvEntry(spreadsheetId, { fundId: rec.fundId, date: fecha, amountAdded: rec.importe, currentValue: lastValue })
+            existingEntries.push(entry)
+            added.push(entry)
+          }
+        }
+        m++; if (m > 12) { m = 1; y++ }
+      }
+    }
+    return added
+  } catch (e) { console.error('applyRecurringContributions', e); return [] }
+}
