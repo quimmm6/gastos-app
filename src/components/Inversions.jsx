@@ -173,10 +173,22 @@ const PERIODS = [
 function PeriodChart({ data, legend, lineElements, height = 220 }) {
   const [period, setPeriod] = useState('tot')
 
-  const filtered = useMemo(() => {
+  const { filtered, yDomain } = useMemo(() => {
     const p = PERIODS.find(p => p.key === period)
-    if (!p?.months) return data
-    return data.slice(-p.months)
+    const filtered = p?.months ? data.slice(-p.months) : data
+    const numericKeys = filtered.length
+      ? Object.keys(filtered[0]).filter(k => k !== 'mes')
+      : []
+    let min = Infinity, max = -Infinity
+    filtered.forEach(pt => {
+      numericKeys.forEach(k => {
+        const v = pt[k]
+        if (v != null) { if (v < min) min = v; if (v > max) max = v }
+      })
+    })
+    const pad = (max - min) * 0.08 || 10
+    const yDomain = min === Infinity ? ['auto', 'auto'] : [Math.floor(min - pad), Math.ceil(max + pad)]
+    return { filtered, yDomain }
   }, [data, period])
 
   const tooltipStyle = { background: cssVar('--tooltip-bg'), border: `1px solid ${cssVar('--tooltip-border')}`, borderRadius: 8, fontSize: 12, color: cssVar('--text1') }
@@ -196,7 +208,7 @@ function PeriodChart({ data, legend, lineElements, height = 220 }) {
           <LineChart data={filtered} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke={cssVar('--chart-grid')} />
             <XAxis dataKey="mes" tick={{ fill: cssVar('--chart-tick'), fontSize: 11 }} />
-            <YAxis tick={{ fill: cssVar('--chart-tick'), fontSize: 10 }} tickFormatter={v => `${v}€`} />
+            <YAxis domain={yDomain} tick={{ fill: cssVar('--chart-tick'), fontSize: 10 }} tickFormatter={v => `${v}€`} />
             <Tooltip contentStyle={tooltipStyle} formatter={(v, name) => [fmt2(v), name]} />
             {lineElements}
           </LineChart>
