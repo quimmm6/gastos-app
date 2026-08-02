@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
-import { Plus, ChevronLeft, Trash2, X, Edit2, ChevronDown } from 'lucide-react'
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
+import { Plus, ChevronLeft, Trash2, X, Edit2, ChevronDown, Maximize2, Minimize2 } from 'lucide-react'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import {
   getFunds, addFund, updateFund, deleteFund,
   getInvEntries, addInvEntry, updateInvEntry, deleteInvEntry,
@@ -55,7 +55,7 @@ function calcMonthBalance(contributions, allVals, ym) {
   const base = prevVal + thisMonthAdded
   const gain = endVal - base
   const pct = base > 0 ? (gain / base) * 100 : null
-  return { gain, pct }
+  return { gain, pct, base, endVal }
 }
 
 function calcFundMetrics(fund, contributions, valuations) {
@@ -162,6 +162,44 @@ function Sheet({ title, onClose, children }) {
   )
 }
 
+// ── Expandable chart wrapper ──────────────────────────────────────────────
+function ExpandableChart({ title, legend, children, height = 220 }) {
+  const [expanded, setExpanded] = useState(false)
+
+  const chartContent = (h) => (
+    <div style={{ width: '100%', height: h }}>
+      <ResponsiveContainer width="100%" height="100%">
+        {children}
+      </ResponsiveContainer>
+    </div>
+  )
+
+  return (
+    <>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 4 }}>
+        <button className="btn-icon" onClick={() => setExpanded(true)} style={{ color: 'var(--text2)' }}>
+          <Maximize2 size={14} />
+        </button>
+      </div>
+      {chartContent(height)}
+      {legend}
+      {expanded && createPortal(
+        <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'var(--bg1)', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', borderBottom: '1px solid var(--border)' }}>
+            <div style={{ fontSize: 16, fontWeight: 700 }}>{title}</div>
+            <button className="btn-icon" onClick={() => setExpanded(false)}><Minimize2 size={18} /></button>
+          </div>
+          <div style={{ flex: 1, padding: '20px 8px' }}>
+            {chartContent('100%')}
+          </div>
+          <div style={{ padding: '12px 20px', borderTop: '1px solid var(--border)' }}>{legend}</div>
+        </div>,
+        document.body
+      )}
+    </>
+  )
+}
+
 // ── Monthly breakdown (compact, % per fund) ───────────────────────────────
 function MonthlyBreakdown({ contributions, valuations, funds }) {
   const [open, setOpen] = useState(false)
@@ -183,13 +221,16 @@ function MonthlyBreakdown({ contributions, valuations, funds }) {
           return calcMonthBalance(cs, vs, ym)
         })
         if (!perFund.some(Boolean)) return null
-        const totalGain = perFund.reduce((s, r) => s + (r ? r.gain : 0), 0)
-        return { ym, perFund, totalGain }
+        const totalBase = perFund.reduce((s, r) => s + (r ? r.base : 0), 0)
+        const totalEnd = perFund.reduce((s, r) => s + (r ? r.endVal : 0), 0)
+        const totalGain = totalEnd - totalBase
+        const totalPct = totalBase > 0 ? (totalGain / totalBase) * 100 : null
+        return { ym, perFund, totalGain, totalPct }
       } else {
         const sortedVs = [...valuations].sort((a, b) => a.date.localeCompare(b.date))
         const r = calcMonthBalance(contributions, sortedVs, ym)
         if (!r) return null
-        return { ym, perFund: [r], totalGain: r.gain }
+        return { ym, perFund: [r], totalGain: r.gain, totalPct: r.pct }
       }
     }).filter(Boolean)
 
@@ -225,7 +266,9 @@ function MonthlyBreakdown({ contributions, valuations, funds }) {
                   {res ? (res.pct !== null ? fmtPct(res.pct) : fmt2(res.gain)) : '—'}
                 </span>
               ))}
-              <span style={{ textAlign: 'right', fontWeight: 600, color: pctColor(r.totalGain) }}>{fmt2(r.totalGain)}</span>
+              <span style={{ textAlign: 'right', fontWeight: 600, color: r.totalPct !== null ? pctColor(r.totalPct) : 'var(--text2)' }}>
+                {r.totalPct !== null ? fmtPct(r.totalPct) : '—'}
+              </span>
             </div>
           ))}
         </div>
@@ -443,23 +486,17 @@ function FundDetail({ fund, contributions, valuations, recFunds, colorIdx, onBac
             valuations={valuations.filter(v => v.fundId === fund.id).sort((a, b) => a.date.localeCompare(b.date))}
             funds={null}
           />
-          <div style={{ width: '100%', height: 200 }}>
-            <ResponsiveContainer>
-              <LineChart data={chartData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke={cssVar('--chart-grid')} />
-                <XAxis dataKey="mes" tick={{ fill: cssVar('--chart-tick'), fontSize: 11 }} />
-                <YAxis tick={{ fill: cssVar('--chart-tick'), fontSize: 10 }} tickFormatter={v => `${v}€`} />
-                <Tooltip contentStyle={{ background: cssVar('--tooltip-bg'), border: `1px solid ${cssVar('--tooltip-border')}`, borderRadius: 8, fontSize: 12, color: cssVar('--text1') }}
-                  formatter={(v, name) => [fmt2(v), name]} />
-                <Line type="monotone" dataKey="invertit" name="Invertit" stroke={cssVar('--text2')} strokeWidth={2} strokeDasharray="4 2" dot={false} connectNulls />
-                <Line type="monotone" dataKey="valor" name="Valor real" stroke={color} strokeWidth={2.5} dot={{ r: 3.5, fill: color }} connectNulls />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-          <div style={{ display: 'flex', gap: 14, justifyContent: 'center', fontSize: 11, color: 'var(--text2)', marginTop: 6 }}>
-            <span>— Invertit</span>
-            <span><span style={{ color }}>■</span> Valor real</span>
-          </div>
+          <ExpandableChart title={`Evolució · ${fund.name}`} height={200}
+            legend={<div style={{ display: 'flex', gap: 14, justifyContent: 'center', fontSize: 11, color: 'var(--text2)', marginTop: 6 }}><span>— Invertit</span><span><span style={{ color }}>■</span> Valor real</span></div>}>
+            <LineChart data={chartData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke={cssVar('--chart-grid')} />
+              <XAxis dataKey="mes" tick={{ fill: cssVar('--chart-tick'), fontSize: 11 }} />
+              <YAxis tick={{ fill: cssVar('--chart-tick'), fontSize: 10 }} tickFormatter={v => `${v}€`} />
+              <Tooltip contentStyle={{ background: cssVar('--tooltip-bg'), border: `1px solid ${cssVar('--tooltip-border')}`, borderRadius: 8, fontSize: 12, color: cssVar('--text1') }} formatter={(v, name) => [fmt2(v), name]} />
+              <Line type="monotone" dataKey="invertit" name="Invertit" stroke={cssVar('--text2')} strokeWidth={2} strokeDasharray="4 2" dot={false} connectNulls />
+              <Line type="monotone" dataKey="valor" name="Valor real" stroke={color} strokeWidth={2.5} dot={{ r: 3.5, fill: color }} connectNulls />
+            </LineChart>
+          </ExpandableChart>
         </div>
       )}
 
@@ -552,33 +589,32 @@ function PortfolioView({ funds, contributions, valuations, loading, onSelectFund
             </div>
           </div>
           <MonthlyBreakdown contributions={contributions} valuations={valuations} funds={funds} />
-          <div style={{ width: '100%', height: 220 }}>
-            <ResponsiveContainer>
-              <LineChart data={chartData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke={cssVar('--chart-grid')} />
-                <XAxis dataKey="mes" tick={{ fill: cssVar('--chart-tick'), fontSize: 11 }} />
-                <YAxis tick={{ fill: cssVar('--chart-tick'), fontSize: 10 }} tickFormatter={v => `${v}€`} />
-                <Tooltip contentStyle={{ background: cssVar('--tooltip-bg'), border: `1px solid ${cssVar('--tooltip-border')}`, borderRadius: 8, fontSize: 12, color: cssVar('--text1') }}
-                  formatter={(v, name) => [fmt2(v), name]} />
+          <ExpandableChart title="Evolució cartera"
+            legend={
+              <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', justifyContent: 'center', fontSize: 11, color: 'var(--text2)', marginTop: 6 }}>
                 {chartMode === 'individual'
-                  ? funds.flatMap((f, i) => [
-                    <Line key={`inv_${i}`} type="monotone" dataKey={`inv_${i}`} stroke={COLORS[i % COLORS.length]} strokeWidth={1.5} strokeDasharray="5 3" dot={false} connectNulls name={`${f.name} inv.`} />,
-                    <Line key={`fons_${i}`} type="monotone" dataKey={`fons_${i}`} stroke={COLORS[i % COLORS.length]} strokeWidth={2} dot={{ r: 3, fill: COLORS[i % COLORS.length] }} connectNulls name={f.name} />,
-                  ])
-                  : [
-                    <Line key="invertit" type="monotone" dataKey="invertit" stroke={cssVar('--text2')} strokeWidth={2} strokeDasharray="5 3" dot={false} connectNulls name="Invertit" />,
-                    <Line key="valor" type="monotone" dataKey="valor" stroke="var(--accent-light)" strokeWidth={2.5} dot={{ r: 3, fill: 'var(--accent-light)' }} connectNulls name="Valor real" />,
-                  ]
+                  ? funds.map((f, i) => <span key={f.id}><span style={{ color: COLORS[i % COLORS.length] }}>■</span> {f.name}</span>)
+                  : <><span>— Invertit</span><span><span style={{ color: 'var(--accent-light)' }}>■</span> Valor real</span></>
                 }
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-          <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', justifyContent: 'center', fontSize: 11, color: 'var(--text2)', marginTop: 6 }}>
-            {chartMode === 'individual'
-              ? funds.map((f, i) => <span key={f.id}><span style={{ color: COLORS[i % COLORS.length] }}>■</span> {f.name}</span>)
-              : <><span style={{ color: 'var(--text2)' }}>— Invertit</span><span><span style={{ color: 'var(--accent-light)' }}>■</span> Valor real</span></>
-            }
-          </div>
+              </div>
+            }>
+            <LineChart data={chartData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke={cssVar('--chart-grid')} />
+              <XAxis dataKey="mes" tick={{ fill: cssVar('--chart-tick'), fontSize: 11 }} />
+              <YAxis tick={{ fill: cssVar('--chart-tick'), fontSize: 10 }} tickFormatter={v => `${v}€`} />
+              <Tooltip contentStyle={{ background: cssVar('--tooltip-bg'), border: `1px solid ${cssVar('--tooltip-border')}`, borderRadius: 8, fontSize: 12, color: cssVar('--text1') }} formatter={(v, name) => [fmt2(v), name]} />
+              {chartMode === 'individual'
+                ? funds.flatMap((f, i) => [
+                  <Line key={`inv_${i}`} type="monotone" dataKey={`inv_${i}`} stroke={COLORS[i % COLORS.length]} strokeWidth={1.5} strokeDasharray="5 3" dot={false} connectNulls name={`${f.name} inv.`} />,
+                  <Line key={`fons_${i}`} type="monotone" dataKey={`fons_${i}`} stroke={COLORS[i % COLORS.length]} strokeWidth={2} dot={{ r: 3, fill: COLORS[i % COLORS.length] }} connectNulls name={f.name} />,
+                ])
+                : [
+                  <Line key="invertit" type="monotone" dataKey="invertit" stroke={cssVar('--text2')} strokeWidth={2} strokeDasharray="5 3" dot={false} connectNulls name="Invertit" />,
+                  <Line key="valor" type="monotone" dataKey="valor" stroke="var(--accent-light)" strokeWidth={2.5} dot={{ r: 3, fill: 'var(--accent-light)' }} connectNulls name="Valor real" />,
+                ]
+              }
+            </LineChart>
+          </ExpandableChart>
         </div>
       )}
 
