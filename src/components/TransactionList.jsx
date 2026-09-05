@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { Trash2, Pencil, X, Search, ArrowUpDown } from 'lucide-react'
-import { deleteTransaction, updateTransaction, getRecurrents, updateRecurrent, deleteRecurrent, addRecurrent } from '../services/googleSheets'
+import { deleteTransaction, updateTransaction, getRecurrents, updateRecurrent, deleteRecurrent, addRecurrent } from '../services/firebase'
 import { fmtDate, fmtDateLong, parseImport } from '../utils/dates'
 import BottomSheet from './BottomSheet'
 

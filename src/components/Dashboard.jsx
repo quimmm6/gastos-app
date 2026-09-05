@@ -2,7 +2,7 @@ import { ChevronLeft, ChevronRight, RefreshCw, Eye, EyeOff, ArrowUpDown } from '
 import { useState, useRef } from 'react'
 import { fmtDate, currentYearMonth, monthName, toYearMonth } from '../utils/dates'
 import { EditModal } from './TransactionList'
-import { deleteTransaction } from '../services/googleSheets'
+import { deleteTransaction } from '../services/firebase'
 
 function fmt(n) {
   return new Intl.NumberFormat('ca-ES', { style: 'currency', currency: 'EUR' }).format(n)

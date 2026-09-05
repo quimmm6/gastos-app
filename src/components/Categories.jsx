@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Trash2, Pencil, Check, X } from 'lucide-react'
-import { reassignCategory } from '../services/googleSheets'
+import { reassignCategory } from '../services/firebase'
 import BottomSheet from './BottomSheet'
 
 function ReassignModal({ oldCat, cats, spreadsheetId, onConfirm, onCancel }) {

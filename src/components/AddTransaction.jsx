@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { X } from 'lucide-react'
-import { addTransaction } from '../services/googleSheets'
+import { addTransaction } from '../services/firebase'
 import { parseImport } from '../utils/dates'
 
 function today() {

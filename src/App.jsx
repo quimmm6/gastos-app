@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef, startTransition } from 'react'
 import { createPortal } from 'react-dom'
 import { Home, List, BarChart2, Plus, LogOut, Moon, Sun, LayoutDashboard, TrendingUp, Settings } from 'lucide-react'
-import { loadGoogleAPIs, signIn, signOut, isSignedIn, getUserEmail, initSheet, getTransactions, getCategories, saveCategories, applyRecurrents, addRecurrent } from './services/googleSheets'
+import { onAuthChanged, signIn, signOut, isAllowedEmail, getTransactions, getCategories, saveCategories, applyRecurrents } from './services/firebase'
 import { DEMO_TRANSACTIONS, DEMO_CATEGORIES, DEMO_RECURRENTS } from './demoData'
 import Dashboard from './components/Dashboard'
 import AddTransaction from './components/AddTransaction'
@@ -9,7 +9,6 @@ import TransactionList from './components/TransactionList'
 import Stats from './components/Stats'
 import Inversions from './components/Inversions'
 import Categories from './components/Categories'
-import Setup from './components/Setup'
 import Logo from './components/Logo'
 import BottomSheet from './components/BottomSheet'
 import './App.css'
@@ -94,10 +93,8 @@ function SplashLogo({ size = 120 }) {
 }
 
 export default function App() {
-  const [config, setConfig] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('gastos_config') || 'null') } catch { return null }
-  })
-  const [authState, setAuthState] = useState('splash') // 'splash' | 'tryAuto' | 'ready' | 'authed'
+  const [user, setUser] = useState(null)
+  const [authState, setAuthState] = useState('splash') // 'splash' | 'ready' | 'authed' | 'denied'
   const [transactions, setTransactions] = useState([])
   const [loading, setLoading] = useState(false)
   const [tab, setTab] = useState('add')
@@ -122,88 +119,64 @@ export default function App() {
     localStorage.setItem('gastos_theme', next ? 'dark' : 'light')
   }
 
-  const detectAndApplyUserTheme = useCallback(async (dark) => {
-    const email = await getUserEmail()
+  const applyUserTheme = useCallback((email, dark) => {
     const pink = email === PINK_EMAIL
     setPinkMode(pink)
     applyTheme(dark ?? darkMode, pink)
   }, [darkMode])
 
-  const fetchTransactions = useCallback(async () => {
-    if (!config) return
+  const fetchTransactions = useCallback(async (uid) => {
+    if (!uid) return
     setLoading(true)
     try {
-      await initSheet(config.spreadsheetId)
       // Apply recurring expenses before loading transactions
-      await applyRecurrents(config.spreadsheetId)
-      const txs = await getTransactions(config.spreadsheetId)
+      await applyRecurrents(uid)
+      const txs = await getTransactions(uid)
       setTransactions(txs.reverse())
-      // Load categories from Sheet; migrate from localStorage if Sheet is empty
-      const sheetCats = await getCategories(config.spreadsheetId)
-      if (sheetCats) {
-        setCategories(sheetCats)
+      // Load categories from Firestore; migrate from localStorage if empty
+      const savedCats = await getCategories(uid)
+      if (savedCats) {
+        setCategories(savedCats)
         localStorage.removeItem('gastos_cats')
         localStorage.removeItem('gastos_cats_v')
       } else {
-        // First time: push localStorage cats to Sheet
+        // First time: push localStorage cats to Firestore
         const localCats = loadCats()
-        await saveCategories(config.spreadsheetId, localCats)
+        await saveCategories(uid, localCats)
         setCategories(localCats)
         localStorage.removeItem('gastos_cats')
         localStorage.removeItem('gastos_cats_v')
       }
     } catch (e) { console.error(e) }
     finally { setLoading(false) }
-  }, [config])
+  }, [])
 
   useEffect(() => {
-    if (!config) return
-    setAuthState('splash')
-    // Show splash for at least 1.8s while APIs load
     const splashTimer = setTimeout(() => {
-      setAuthState(prev => prev === 'splash' ? 'tryAuto' : prev)
+      setAuthState(prev => prev === 'splash' ? 'ready' : prev)
     }, 1800)
 
-    loadGoogleAPIs(config.clientId, config.apiKey).then(async () => {
-      if (isSignedIn()) {
-        clearTimeout(splashTimer)
-        setAuthState('authed')
-        detectAndApplyUserTheme()
-        fetchTransactions()
+    const unsub = onAuthChanged(async (fbUser) => {
+      if (!fbUser) {
+        setUser(null)
+        setAuthState(prev => prev === 'authed' || prev === 'denied' ? 'ready' : prev)
         return
       }
-      // Try silent first, then auto-popup (no button needed)
-      const tryAuth = async () => {
-        try {
-          await signIn('none')
-          return true
-        } catch {}
-        try {
-          // Auto-trigger popup: if user has active Google session it closes itself
-          await signIn('')
-          return true
-        } catch {
-          return false
-        }
-      }
-      const ok = await tryAuth()
       clearTimeout(splashTimer)
-      if (ok) {
-        setAuthState('authed')
-        detectAndApplyUserTheme()
-        fetchTransactions()
-      } else {
-        setAuthState('ready') // fallback: show button
+      if (!isAllowedEmail(fbUser.email)) {
+        await signOut()
+        setUser(null)
+        setAuthState('denied')
+        return
       }
+      setUser(fbUser)
+      setAuthState('authed')
+      applyUserTheme(fbUser.email)
+      fetchTransactions(fbUser.uid)
     })
 
-    return () => clearTimeout(splashTimer)
-  }, [config])
-
-  // Once splash timer fires, check if APIs resolved
-  useEffect(() => {
-    if (authState === 'tryAuto') setAuthState('ready')
-  }, [authState])
+    return () => { clearTimeout(splashTimer); unsub() }
+  }, [])
 
   const handleDemo = () => {
     setDemoMode(true)
@@ -213,19 +186,18 @@ export default function App() {
   }
 
   const handleSignIn = async () => {
-    try { await signIn(); setAuthState('authed'); await detectAndApplyUserTheme(); await fetchTransactions() }
+    try { await signIn() }
     catch (e) { console.error(e) }
   }
 
   const handleSignOut = () => {
     setPinkMode(false)
     if (demoMode) { setDemoMode(false); setAuthState('ready'); setTransactions([]); return }
-    signOut(); setAuthState('ready'); setTransactions([])
+    signOut(); setUser(null); setAuthState('ready'); setTransactions([])
   }
-  const handleSaveConfig = (cfg) => { localStorage.setItem('gastos_config', JSON.stringify(cfg)); setConfig(cfg) }
   const handleSaveCats = (cats) => {
     setCategories(cats)
-    saveCategories(config.spreadsheetId, cats).catch(console.error)
+    saveCategories(user.uid, cats).catch(console.error)
   }
   const TABS = invEnabled ? ALL_TABS : ALL_TABS.filter(t => t !== 'inv')
 
@@ -255,8 +227,6 @@ export default function App() {
     setTransactions(prev => prev.map(t => t.categoria === oldCat ? { ...t, categoria: newCat } : t))
   }
 
-  if (!config) return <Setup onSave={handleSaveConfig} />
-
   if (authState === 'authed') {
     return (
       <div className="app">
@@ -279,7 +249,7 @@ export default function App() {
           <div key={tabAnimKey} className={`page-slide page-slide-${tabSlideDir}`}>
             {tab === 'add' && (
               <AddTransaction
-                spreadsheetId={demoMode ? null : config.spreadsheetId}
+                spreadsheetId={demoMode ? null : user?.uid}
                 onAdded={onTransactionAdded}
                 categories={categories}
                 transactions={transactions}
@@ -287,10 +257,10 @@ export default function App() {
                 inline
               />
             )}
-            {tab === 'inicio' && <Dashboard transactions={transactions} loading={loading} onRefresh={demoMode ? () => {} : fetchTransactions} categories={categories} spreadsheetId={config?.spreadsheetId} onDeleted={demoMode ? () => {} : onTransactionDeleted} onUpdated={demoMode ? () => {} : onTransactionUpdated} readOnly={demoMode} />}
-            {tab === 'lista' && <TransactionList transactions={transactions} spreadsheetId={config?.spreadsheetId} onDeleted={demoMode ? () => {} : onTransactionDeleted} onUpdated={demoMode ? () => {} : onTransactionUpdated} loading={loading} categories={categories} readOnly={demoMode} demoRecurrents={demoMode ? DEMO_RECURRENTS : null} />}
+            {tab === 'inicio' && <Dashboard transactions={transactions} loading={loading} onRefresh={demoMode ? () => {} : () => fetchTransactions(user?.uid)} categories={categories} spreadsheetId={demoMode ? null : user?.uid} onDeleted={demoMode ? () => {} : onTransactionDeleted} onUpdated={demoMode ? () => {} : onTransactionUpdated} readOnly={demoMode} />}
+            {tab === 'lista' && <TransactionList transactions={transactions} spreadsheetId={demoMode ? null : user?.uid} onDeleted={demoMode ? () => {} : onTransactionDeleted} onUpdated={demoMode ? () => {} : onTransactionUpdated} loading={loading} categories={categories} readOnly={demoMode} demoRecurrents={demoMode ? DEMO_RECURRENTS : null} />}
             {tab === 'stats' && <Stats transactions={transactions} />}
-            {tab === 'inv' && invEnabled && <Inversions spreadsheetId={config?.spreadsheetId} />}
+            {tab === 'inv' && invEnabled && <Inversions spreadsheetId={demoMode ? null : user?.uid} />}
           </div>
         </main>
 
@@ -335,15 +305,10 @@ export default function App() {
               categories={categories}
               onSave={demoMode ? () => {} : handleSaveCats}
               transactions={transactions}
-              spreadsheetId={config?.spreadsheetId}
+              spreadsheetId={demoMode ? null : user?.uid}
               onReassigned={demoMode ? () => {} : onCategoryReassigned}
               readOnly={demoMode}
             />
-
-            <button className="btn-ghost" style={{ marginTop: 20, width: '100%', color: 'var(--red)', borderColor: 'var(--red)' }}
-              onClick={() => { setShowSettings(false); localStorage.removeItem('gastos_config'); setConfig(null) }}>
-              Canviar configuració de compte
-            </button>
           </BottomSheet>,
           document.body
         )}
@@ -367,7 +332,13 @@ export default function App() {
           <div className="splash-sub">Control de Despeses</div>
         </div>
 
-        <div className={`splash-actions ${authState === 'ready' ? 'splash-actions-visible' : ''}`}>
+        {authState === 'denied' && (
+          <div style={{ color: 'var(--red)', fontSize: 13, textAlign: 'center', marginBottom: 12, maxWidth: 260 }}>
+            Aquest compte de Google no té accés a l'app.
+          </div>
+        )}
+
+        <div className={`splash-actions ${authState === 'ready' || authState === 'denied' ? 'splash-actions-visible' : ''}`}>
           <button className="btn-primary btn-large splash-btn" onClick={handleSignIn}>
             <svg width="20" height="20" viewBox="0 0 24 24" style={{ marginRight: 8 }}>
               <path fill="white" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -376,9 +347,6 @@ export default function App() {
               <path fill="white" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
             </svg>
             Connectar amb Google
-          </button>
-          <button className="btn-ghost small" style={{ marginTop: 8 }} onClick={() => { localStorage.removeItem('gastos_config'); setConfig(null) }}>
-            Canviar configuració
           </button>
         </div>
 

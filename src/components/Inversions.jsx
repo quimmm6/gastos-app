@@ -7,7 +7,7 @@ import {
   getInvEntries, addInvEntry, updateInvEntry, deleteInvEntry,
   getInvValuations, addInvValuation, updateInvValuation, deleteInvValuation,
   getRecFunds, addRecFund, updateRecFund, deleteRecFund, applyRecurringContributions,
-} from '../services/googleSheets'
+} from '../services/firebase'
 
 function cssVar(n) { return getComputedStyle(document.documentElement).getPropertyValue(n).trim() }
 function fmt(n) { return new Intl.NumberFormat('ca-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n) }
