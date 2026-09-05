@@ -147,8 +147,14 @@ html, body, #root {
   -webkit-overflow-scrolling: touch;
 }
 .modal-handle {
-  width: 36px; height: 4px; background: var(--border);
-  border-radius: 2px; margin: 0 auto 20px;
+  width: 100%; height: 24px;
+  display: flex; align-items: center; justify-content: center;
+  margin: -12px 0 8px;
+  touch-action: none;
+}
+.modal-handle::before {
+  content: ''; width: 36px; height: 4px; background: var(--border);
+  border-radius: 2px;
 }
 
 /* ── Splash screen ── */

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, startTransition } from 'react'
+import { useState, useEffect, useCallback, startTransition } from 'react'
 import { createPortal } from 'react-dom'
 import { Home, List, BarChart2, Plus, LogOut, Moon, Sun, LayoutDashboard, TrendingUp, Settings } from 'lucide-react'
 import { onAuthChanged, signIn, signOut, isAllowedEmail, getTransactions, getCategories, saveCategories, applyRecurrents } from './services/firebase'
@@ -207,18 +207,7 @@ export default function App() {
     if (!val && tab === 'inv') setTab('add')
   }
 
-  const mainSwipeX = useRef(null)
   const goTab = (newTab, dir) => { startTransition(() => { setTabSlideDir(dir); setTabAnimKey(k => k + 1); setTab(newTab) }) }
-  const onMainTouchStart = (e) => { mainSwipeX.current = e.touches[0].clientX }
-  const onMainTouchEnd = (e) => {
-    if (mainSwipeX.current === null) return
-    const dx = e.changedTouches[0].clientX - mainSwipeX.current
-    mainSwipeX.current = null
-    if (Math.abs(dx) < 120) return
-    const curIdx = TABS.indexOf(tab)
-    if (dx < 0 && curIdx < TABS.length - 1) goTab(TABS[curIdx + 1], 'left')
-    if (dx > 0 && curIdx > 0) goTab(TABS[curIdx - 1], 'right')
-  }
 
   const onTransactionAdded = (tx) => { setTransactions((prev) => [tx, ...prev]); setShowAdd(false) }
   const onTransactionDeleted = (id) => setTransactions((prev) => prev.filter((t) => t.id !== id))
@@ -245,7 +234,7 @@ export default function App() {
           </div>
         </header>
 
-        <main className="app-main" onTouchStart={onMainTouchStart} onTouchEnd={onMainTouchEnd}>
+        <main className="app-main">
           <div key={tabAnimKey} className={`page-slide page-slide-${tabSlideDir}`}>
             {tab === 'add' && (
               <AddTransaction

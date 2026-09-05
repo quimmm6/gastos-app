@@ -14,10 +14,8 @@ export default function BottomSheet({ children, onClose }) {
       <div
         className="modal-sheet"
         onClick={e => e.stopPropagation()}
-        onTouchStart={onTouchStart}
-        onTouchEnd={onTouchEnd}
       >
-        <div className="modal-handle" />
+        <div className="modal-handle" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd} />
         {children}
       </div>
     </div>

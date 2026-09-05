@@ -83,7 +83,7 @@ export default function Dashboard({ transactions, loading, onRefresh, categories
   }
 
   return (
-    <div>
+    <div onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
       <div className="month-nav">
         <button className="btn-icon" onClick={() => goMonth(allMonths[idx + 1], 'right')} disabled={!canPrev}>
           <ChevronLeft size={20} />
@@ -95,7 +95,7 @@ export default function Dashboard({ transactions, loading, onRefresh, categories
       </div>
 
       <div key={monthAnimKey} className={`page-slide page-slide-${monthSlideDir}`}>
-      <div className="card balance-card" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd} style={{ touchAction: 'pan-y' }}>
+      <div className="card balance-card">
         <div className="balance-row">
           <div className="balance-mini">
             <div className="label">Ingressos</div>
